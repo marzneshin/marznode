@@ -2,6 +2,7 @@
 The grpc Service to add/update/delete users
 Right now it only supports Xray but that is subject to change
 """
+import json
 import logging
 
 from grpclib.server import Stream
@@ -11,7 +12,7 @@ from marznode.xray_api import XrayAPI
 from marznode.xray_api.exceptions import EmailExistsError, EmailNotFoundError
 from marznode.xray_api.types.account import accounts_map
 from .service_grpc import MarzServiceBase
-from .service_pb2 import UserUpdate, Empty
+from .service_pb2 import UserUpdate, Empty, InboundsResponse, Inbound
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,10 @@ class XrayService(MarzServiceBase):
     async def FetchInbounds(self,
                             stream: 'grpclib.server.Stream[marznode.service.service_pb2.Empty, '
                                     'marznode.service.service_pb2.InboundsResponse]') -> None:
-        pass
+        await stream.recv_message()
+        stored_inbounds = await self.storage.list_inbounds()
+        inbounds = [Inbound(tag=i["tag"], config=json.dumps(i)) for i in stored_inbounds]
+        await stream.send_message(InboundsResponse(inbounds=inbounds))
 
     async def RepopulateUsers(self,
                               stream: 'grpclib.server.Stream[marznode.service.service_pb2.UsersData, '
