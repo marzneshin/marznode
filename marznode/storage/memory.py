@@ -32,11 +32,12 @@ class MemoryStorage(BaseStorage):
     async def remove_user(self, user_id: int) -> None:
         del self.storage["users"][user_id]
 
-    async def update_user_inbounds(self, user_id: int, inbounds: list[str]) -> None:
-        raise NotImplementedError
-
-    async def repopulate_users(self, users: list[dict]) -> None:
-        raise NotImplementedError
+    async def update_user_inbounds(self, user_id: int, inbound_additions: list[str],
+                                   inbound_reductions: list[str]) -> None:
+        self.storage["users"][user_id]["inbound_tags"] = inbounds
 
     def set_inbounds(self, inbounds: dict[str, dict]) -> None:
         self.storage["inbounds"] = inbounds
+
+    async def flush_users(self):
+        self.storage["users"] = {}
