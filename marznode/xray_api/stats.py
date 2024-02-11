@@ -84,7 +84,7 @@ class Stats(XrayAPIBase):
             uptime=response.Uptime
         )
 
-    async def __query_stats(self, pattern: str, reset: bool = False) -> typing.List[StatResponse]:
+    async def __query_stats(self, pattern: str, reset: bool = False) -> list[StatResponse]:
         """Get statistics from Xray-core
 
         Args:
@@ -99,19 +99,19 @@ class Stats(XrayAPIBase):
             raise RelatedError(error) from error
         results = []
         for stat in response.stat:
-            typ, name, _, link = stat.name.split('>>>')
-            results.append(StatResponse(name, typ, link, stat.value))
+            type_, name, _, link = stat.name.split('>>>')
+            results.append(StatResponse(name, type_, link, stat.value))
         return results
 
-    async def get_users_stats(self, reset: bool = False) -> typing.List[StatResponse]:
+    async def get_users_stats(self, reset: bool = False) -> list[StatResponse]:
         """returns statistics of all users"""
         return await self.__query_stats("user>>>", reset=reset)
 
-    async def get_inbounds_stats(self, reset: bool = False) -> typing.List[StatResponse]:
+    async def get_inbounds_stats(self, reset: bool = False) -> list[StatResponse]:
         """returns statistics of all inbounds"""
         return await self.__query_stats("inbound>>>", reset=reset)
 
-    async def get_outbounds_stats(self, reset: bool = False) -> typing.List[StatResponse]:
+    async def get_outbounds_stats(self, reset: bool = False) -> list[StatResponse]:
         """returns statistics of all outbounds"""
         return await self.__query_stats("outbound>>>", reset=reset)
 

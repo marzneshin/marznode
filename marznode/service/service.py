@@ -4,6 +4,7 @@ Right now it only supports Xray but that is subject to change
 """
 import json
 import logging
+from collections import defaultdict
 
 from grpclib.server import Stream
 
@@ -12,7 +13,7 @@ from marznode.xray_api import XrayAPI
 from marznode.xray_api.exceptions import EmailExistsError, EmailNotFoundError
 from marznode.xray_api.types.account import accounts_map
 from .service_grpc import MarzServiceBase
-from .service_pb2 import UserUpdate, Empty, InboundsResponse, Inbound
+from .service_pb2 import UserUpdate, Empty, InboundsResponse, Inbound, UsersStats
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,12 @@ class XrayService(MarzServiceBase):
         await stream.send_message(Empty())
 
     async def FetchUsersStats(self,
-                              stream: 'grpclib.server.Stream[marznode.service.service_pb2.Empty, '
-                                      'marznode.service.service_pb2.UsersStats]') -> None:
-        pass
+                              stream: Stream[Empty, UsersStats]) -> None:
+        await stream.recv_message()
+        api_stats = await self.api.get_users_stats(reset=True)
+        stats = defaultdict(int)
+        for stat in api_stats:
+            uid = int(stat.name.split(".")[0])
+            stats[uid] += stat.value
+        user_stats = [UsersStats.UserStats(uid=uid, usage=usage) for uid, usage in stats.items()]
+        await stream.send_message(UsersStats(users_stats=user_stats))
