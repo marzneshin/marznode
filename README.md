@@ -16,3 +16,38 @@ send it to the server with each request as metadata, whenever it changes the ser
 to fetch the list again. This ensures any changes to xray inbounds are known by both sides.
 
 Right now users are considered to be immutable objects consisting of _id_, _username_ and a _key_.
+
+## Setup Guide
+
+Setup python virtual environment
+```sh
+python -m venv .
+```
+
+Install the requirements
+
+```sh
+pip install -r requirements.txt
+```
+
+Config Xray for the node
+
+```sh
+cp ./.env.example ./.env
+```
+
+Setup service proto
+
+```sh
+make proto
+```
+
+Config certificate for node by saving the certificate in a file and providing the address of the certificate
+file with `CLIENT_SSL_CERT`. And then execute and start the node:
+
+```sh
+python marznode.py
+```
+
+
+
