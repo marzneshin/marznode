@@ -167,3 +167,6 @@ cython_debug/
 v2ray-core
 xray-core
 *config.json
+bin
+lib64
+pyvenv.cfg
