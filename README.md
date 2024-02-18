@@ -17,7 +17,8 @@ Whenever a client connects marznode it could get a list of inbounds and then rep
 
 Setup python virtual environment
 ```sh
-python -m venv .
+python -m venv .venv/
+source .venv/bin/activate
 ```
 
 Install the requirements
@@ -26,15 +27,15 @@ Install the requirements
 pip install -r requirements.txt
 ```
 
-Config Xray for the node
+Configure the node. you should provide the correct path to your xray binary and your xray config file.
 
 ```sh
-cp ./.env.example ./.env
+cp .env.example .env
 ```
 
 
-Config certificate for node by saving the certificate in a file and providing the address of the certificate
-file with `CLIENT_SSL_CERT`. And then execute and start the node:
+Set your certificate for the node by saving the certificate in a file and providing address of the certificate
+file using `CLIENT_SSL_CERT`. And then execute and start the node:
 
 ```sh
 python marznode.py
