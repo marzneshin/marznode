@@ -11,11 +11,7 @@ in marznode, updating marznode inbounds in Marzneshin and getting stats from xra
 Marznode saves users' information in a database and the client could be assured of synchronization by repopulating the 
 storage whenever necessary e.g. when the response is not correct.
 
-Whenever Marznode starts up, it generates a checksum of the inbounds fed to xray. the client could store this sum and 
-send it to the server with each request as metadata, whenever it changes the server return an error and the client has
-to fetch the list again. This ensures any changes to xray inbounds are known by both sides.
-
-Right now users are considered to be immutable objects consisting of _id_, _username_ and a _key_.
+Whenever a client connects marznode it could get a list of inbounds and then repopulate it's users.
 
 ## Setup Guide
 
@@ -43,6 +39,3 @@ file with `CLIENT_SSL_CERT`. And then execute and start the node:
 ```sh
 python marznode.py
 ```
-
-
-
