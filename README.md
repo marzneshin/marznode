@@ -36,11 +36,6 @@ Config Xray for the node
 cp ./.env.example ./.env
 ```
 
-Setup service proto
-
-```sh
-make proto
-```
 
 Config certificate for node by saving the certificate in a file and providing the address of the certificate
 file with `CLIENT_SSL_CERT`. And then execute and start the node:
