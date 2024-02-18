@@ -13,7 +13,7 @@ from marznode.xray_api import XrayAPI
 from marznode.xray_api.exceptions import EmailExistsError, EmailNotFoundError
 from marznode.xray_api.types.account import accounts_map
 from .service_grpc import MarzServiceBase
-from .service_pb2 import UserUpdate, Empty, InboundsResponse, Inbound, UsersStats
+from .service_pb2 import UserData, Empty, InboundsResponse, Inbound, UsersStats
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +24,10 @@ class XrayService(MarzServiceBase):
         self.api = api
         self.storage = storage
 
-    async def _add_user(self, user_update: UserUpdate):
-        user = user_update.user
-        inbound_addition_list = [i.tag for i in user_update.inbound_additions]
-        logger.debug("Request to add user `%s` to inbounds `%s`", user.username, str(inbound_addition_list))
+    async def _add_user(self, user_data: UserData):
+        user = user_data.user
+        inbound_addition_list = [i.tag for i in user_data.inbounds]
+        logger.info("Request to add user `%s` to inbounds `%s`", user.username, str(inbound_addition_list))
         inbound_additions = await self.storage.list_inbounds(tag=inbound_addition_list)
         email = f"{user.id}.{user.username}"
         key = user.key
@@ -38,7 +38,7 @@ class XrayService(MarzServiceBase):
             try:
                 await self.api.add_inbound_user(inbound_tag, user_account)
             except EmailExistsError:
-                logger.warning("Request to add an already existing user `%s` to tagg `%s`.",
+                logger.warning("Request to add an already existing user `%s` to tag `%s`.",
                                email, inbound_tag)
             else:
                 logger.debug("User `%s` added to inbound `%s`", email, inbound_tag)
@@ -48,7 +48,9 @@ class XrayService(MarzServiceBase):
                                          "key": user.key},
                                         [i["tag"] for i in inbound_additions])
 
-    async def _remove_user(self, email: str, tags: list[str]):
+    async def _remove_user(self, user):
+        tags = user["inbound_tags"]
+        email = f"{user['id']}.{user['username']}"
         for tag in tags:
             try:
                 await self.api.remove_inbound_user(tag, email)
@@ -58,39 +60,23 @@ class XrayService(MarzServiceBase):
             else:
                 logger.debug("User `%s` removed from inbound `%s`", email, tag)
 
-    async def AddUser(self,
-                      stream: Stream[UserUpdate, Empty]
-                      ) -> None:
-        user_update = await stream.recv_message()
-        await self._add_user(user_update)
-
-        await stream.send_message(Empty())
-
-    async def RemoveUser(self,
-                         stream: Stream[UserUpdate, Empty]):
-        user_update = await stream.recv_message()
-        user = user_update.user
-        inbound_reduction_list = [i.tag for i in user_update.inbound_reductions]
-        logger.debug("Request to remove user `%s` from inbounds `%s`",
-                     user.username, str(inbound_reduction_list))
+    async def _update_user(self, user_data: UserData):
+        user = user_data.user
         storage_user = await self.storage.list_users(user.id)
         if not storage_user:
-            logger.warning("Request to remove non existing user `%s`", user.username)
-            await stream.send_message(Empty())
-            return
-        tags = storage_user["inbound_tags"]
-        email = f"{user.id}.{user.username}"
-        await self._remove_user(email, tags)
+            await self._add_user(user_data)
+        elif not user.inbounds:
+            await self._remove_user(storage_user)
+        else:
+            await self._remove_user(storage_user)
+            await self._add_user(user_data)
+            # update user lazily
 
-        if await self.storage.list_users(user.id):
-            await self.storage.remove_user(user.id)
-        await stream.send_message(Empty())
-
-    async def UpdateUserInbounds(self,
-                                 stream: 'grpclib.server.Stream['
-                                         'marznode.service.service_pb2.UpdateUserInboundsRequest, '
-                                         'marznode.service.service_pb2.Empty]') -> None:
-        pass
+    async def SyncUsers(self,
+                        stream: 'Stream[UserData,'
+                                'Empty]') -> None:
+        async for user_data in stream:
+            await self._update_user(user_data)
 
     async def FetchInbounds(self,
                             stream: 'grpclib.server.Stream[marznode.service.service_pb2.Empty, '
@@ -108,11 +94,11 @@ class XrayService(MarzServiceBase):
         for u in storage_users:
             # remove all users from xray
             inbound_tags = u["inbound_tags"]
-            await self._remove_user(f"{u['id']}.{u['username']}", inbound_tags)
+            await self._remove_user(u)
         await self.storage.flush_users()
 
-        for update in data.users_updates:
-            await self._add_user(update)
+        for data in data.users_data:
+            await self._add_user(data)
         await stream.send_message(Empty())
 
     async def FetchUsersStats(self,
