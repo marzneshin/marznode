@@ -65,7 +65,7 @@ class XrayService(MarzServiceBase):
         storage_user = await self.storage.list_users(user.id)
         if not storage_user:
             await self._add_user(user_data)
-        elif not user.inbounds:
+        elif not user_data.inbounds:
             await self._remove_user(storage_user)
         else:
             await self._remove_user(storage_user)
