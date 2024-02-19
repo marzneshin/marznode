@@ -27,10 +27,19 @@ class XrayService(MarzServiceBase):
     async def _add_user(self, user_data: UserData):
         user = user_data.user
         inbound_addition_list = [i.tag for i in user_data.inbounds]
-        logger.info("Request to add user `%s` to inbounds `%s`", user.username, str(inbound_addition_list))
         inbound_additions = await self.storage.list_inbounds(tag=inbound_addition_list)
-        email = f"{user.id}.{user.username}"
-        key = user.key
+        await self.storage.add_user({"id": user.id,
+                                     "username": user.username,
+                                     "key": user.key},
+                                    [i["tag"] for i in inbound_additions])
+        storage_user = await self.storage.list_users(user.id)
+        await self._add_user_to_inbounds(storage_user, set(inbound_addition_list))
+
+    async def _add_user_to_inbounds(self, storage_user, inbounds: set[str]):
+        logger.info("Adding user `%s` to inbounds `%s`", storage_user["username"], str(inbounds))
+        inbound_additions = await self.storage.list_inbounds(tag=inbounds)
+        email = f"{storage_user['id']}.{storage_user['username']}"
+        key = storage_user['key']
         for i in inbound_additions:
             account_class = accounts_map[i["protocol"]]
             user_account = account_class(email=email, seed=key)
@@ -42,15 +51,15 @@ class XrayService(MarzServiceBase):
                                email, inbound_tag)
             else:
                 logger.debug("User `%s` added to inbound `%s`", email, inbound_tag)
-        if not await self.storage.list_users(user.id):
-            await self.storage.add_user({"id": user.id,
-                                         "username": user.username,
-                                         "key": user.key},
-                                        [i["tag"] for i in inbound_additions])
 
     async def _remove_user(self, user):
         tags = user["inbound_tags"]
         email = f"{user['id']}.{user['username']}"
+
+        await self._remove_email_from_inbounds(email, tags)
+        await self.storage.remove_user(user["id"])
+
+    async def _remove_email_from_inbounds(self, email, tags: list[str]):
         for tag in tags:
             try:
                 await self.api.remove_inbound_user(tag, email)
@@ -61,16 +70,22 @@ class XrayService(MarzServiceBase):
                 logger.debug("User `%s` removed from inbound `%s`", email, tag)
 
     async def _update_user(self, user_data: UserData):
+        logger.debug(user_data)
         user = user_data.user
         storage_user = await self.storage.list_users(user.id)
         if not storage_user:
-            await self._add_user(user_data)
+            return await self._add_user(user_data)
         elif not user_data.inbounds:
-            await self._remove_user(storage_user)
-        else:
-            await self._remove_user(storage_user)
-            await self._add_user(user_data)
-            # update user lazily
+            return await self._remove_user(storage_user)
+
+        storage_inbounds = set(storage_user["inbound_tags"])
+        new_inbounds = {i.tag for i in user_data.inbounds}
+        added_inbounds = new_inbounds - storage_inbounds
+        removed_inbounds = storage_inbounds - new_inbounds
+        email = f"{storage_user['id']}.{storage_user['username']}"
+        await self._remove_email_from_inbounds(email, removed_inbounds)
+        await self._add_user_to_inbounds(storage_user, added_inbounds)
+        self.storage.storage["users"][user.id]["inbound_tags"] = new_inbounds
 
     async def SyncUsers(self,
                         stream: 'Stream[UserData,'
@@ -89,16 +104,13 @@ class XrayService(MarzServiceBase):
     async def RepopulateUsers(self,
                               stream: 'grpclib.server.Stream[marznode.service.service_pb2.UsersData, '
                                       'marznode.service.service_pb2.Empty]') -> None:
-        data = await stream.recv_message()
-        storage_users = await self.storage.list_users()
-        for u in storage_users:
-            # remove all users from xray
-            inbound_tags = u["inbound_tags"]
-            await self._remove_user(u)
-        await self.storage.flush_users()
-
-        for data in data.users_data:
-            await self._add_user(data)
+        users_data = (await stream.recv_message()).users_data
+        for user_data in users_data:
+            await self._update_user(user_data)
+        user_ids = {user_data.user.id for user_data in users_data}
+        for storage_user in await self.storage.list_users():
+            if storage_user["id"] not in user_ids:
+                await self._remove_user(storage_user)
         await stream.send_message(Empty())
 
     async def FetchUsersStats(self,

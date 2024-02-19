@@ -19,7 +19,7 @@ class MemoryStorage(BaseStorage):
                             tag: list[str] | str | None = None,
                             include_users: bool = False
                             ) -> list[dict] | dict | None:
-        if tag:
+        if tag is not None:
             if isinstance(tag, str):
                 return self.storage["inbounds"][tag]
             return [self.storage["inbounds"][t] for t in tag if t in self.storage["inbounds"]]
