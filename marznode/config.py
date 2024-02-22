@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 SERVICE_ADDRESS = config("SERVICE_ADDRESS", default="0.0.0.0")
-SERVICE_PORT = config("SERVICE_PORT", cast=int, default=62050)
+SERVICE_PORT = config("SERVICE_PORT", cast=int, default=53042)
 
 XRAY_EXECUTABLE_PATH = config("XRAY_EXECUTABLE_PATH", default="/usr/bin/xray")
 XRAY_ASSETS_PATH = config("XRAY_ASSETS_PATH", default="/usr/share/xray")
