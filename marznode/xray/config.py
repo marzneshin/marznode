@@ -12,25 +12,17 @@ from .utils import get_x25519
 
 class XrayConfig(dict):
     def __init__(self,
-                 config: Union[dict, str, PosixPath],
+                 config: str,
                  storage: BaseStorage,
                  api_host: str = "127.0.0.1",
                  api_port: int = 8080):
-        if isinstance(config, str):
-            try:
-                # considering string as json
-                config = commentjson.loads(config)
-            except (json.JSONDecodeError, ValueError):
-                # considering string as file path
-                with open(config, 'r') as file:
-                    config = commentjson.loads(file.read())
-
-        if isinstance(config, PosixPath):
+        try:
+            # considering string as json
+            config = commentjson.loads(config)
+        except (json.JSONDecodeError, ValueError):
+            # considering string as file path
             with open(config, 'r') as file:
                 config = commentjson.loads(file.read())
-
-        if isinstance(config, dict):
-            config = deepcopy(config)
 
         self.api_host = api_host
         self.api_port = api_port
@@ -126,10 +118,6 @@ class XrayConfig(dict):
         for inbound in self['inbounds']:
             if not inbound['protocol'].lower() in {"vmess", "trojan", "vless", "shadowsocks"}:
                 continue
-            """
-            if inbound['tag'] in XRAY_EXCLUDE_INBOUND_TAGS:
-                continue
-            """
 
             if not inbound.get('settings'):
                 inbound['settings'] = {}

@@ -8,7 +8,7 @@ from grpclib.server import Server
 from grpclib.utils import graceful_exit
 
 from marznode import config
-from marznode.service import XrayService
+from marznode.service import MarzService
 from marznode.storage import MemoryStorage
 from marznode.utils.ssl import generate_keypair, create_secure_context
 from marznode.xray.base import XrayCore
@@ -34,7 +34,7 @@ async def main():
     xray = XrayCore(config.XRAY_EXECUTABLE_PATH, config.XRAY_ASSETS_PATH)
     await xray.start(xray_config)
     xray_api = XrayAPI("127.0.0.1", 8080)
-    server = Server([XrayService(xray_api, storage), Health()])
+    server = Server([MarzService(xray_api, storage, xray), Health()])
 
     with graceful_exit([server]):
         await server.start(config.SERVICE_ADDRESS, config.SERVICE_PORT, ssl=create_secure_context(

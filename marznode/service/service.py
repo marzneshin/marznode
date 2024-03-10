@@ -14,15 +14,20 @@ from marznode.xray_api.exceptions import EmailExistsError, EmailNotFoundError
 from marznode.xray_api.types.account import accounts_map
 from .service_grpc import MarzServiceBase
 from .service_pb2 import UserData, Empty, InboundsResponse, Inbound, UsersStats
+from .service_pb2 import XrayConfig as XrayConfig_pb2
+from .. import config
+from ..xray.base import XrayCore
+from ..xray.config import XrayConfig
 
 logger = logging.getLogger(__name__)
 
 
-class XrayService(MarzServiceBase):
+class MarzService(MarzServiceBase):
     """Add/Update/Delete users based on calls from the client"""
-    def __init__(self, api: XrayAPI, storage: BaseStorage):
+    def __init__(self, api: XrayAPI, storage: BaseStorage, xray: XrayCore):
         self.api = api
         self.storage = storage
+        self.xray = xray
 
     async def _add_user(self, user_data: UserData):
         user = user_data.user
@@ -123,3 +128,26 @@ class XrayService(MarzServiceBase):
             stats[uid] += stat.value
         user_stats = [UsersStats.UserStats(uid=uid, usage=usage) for uid, usage in stats.items()]
         await stream.send_message(UsersStats(users_stats=user_stats))
+
+    async def StreamXrayLogs(self,
+                             stream: 'grpclib.server.Stream[marznode.service.service_pb2.Empty,'
+                                     'marznode.service.service_pb2.LogLine]') -> None:
+        pass
+
+    async def FetchXrayConfig(self, stream: 'grpclib.server.Stream[marznode.service.service_pb2.Empty,'
+                                            'marznode.service.service_pb2.XrayConfig]') -> None:
+        await stream.recv_message()
+        with open(config.XRAY_CONFIG_PATH, 'r') as f:
+            content = f.read()
+        await stream.send_message(XrayConfig_pb2(configuration=content))
+
+    async def RestartXray(self, stream: Stream[XrayConfig_pb2, InboundsResponse]) -> None:
+        message = await stream.recv_message()
+        xconfig = XrayConfig(message.configuration, storage=self.storage)
+        await self.storage.flush_users()
+        await self.xray.restart(xconfig)
+        stored_inbounds = await self.storage.list_inbounds()
+        inbounds = [Inbound(tag=i["tag"], config=json.dumps(i)) for i in stored_inbounds]
+        await stream.send_message(InboundsResponse(inbounds=inbounds))
+        with open(config.XRAY_CONFIG_PATH, 'w') as f:
+            f.write(message.configuration)
