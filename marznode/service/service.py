@@ -13,7 +13,7 @@ from marznode.xray_api import XrayAPI
 from marznode.xray_api.exceptions import EmailExistsError, EmailNotFoundError
 from marznode.xray_api.types.account import accounts_map
 from .service_grpc import MarzServiceBase
-from .service_pb2 import UserData, Empty, InboundsResponse, Inbound, UsersStats
+from .service_pb2 import UserData, Empty, InboundsResponse, Inbound, UsersStats, LogLine
 from .service_pb2 import XrayConfig as XrayConfig_pb2
 from .. import config
 from ..xray.base import XrayCore
@@ -130,12 +130,17 @@ class MarzService(MarzServiceBase):
         await stream.send_message(UsersStats(users_stats=user_stats))
 
     async def StreamXrayLogs(self,
-                             stream: 'grpclib.server.Stream[marznode.service.service_pb2.Empty,'
-                                     'marznode.service.service_pb2.LogLine]') -> None:
-        pass
+                             stream: Stream[Empty, LogLine]) -> None:
+        req = await stream.recv_message()
+        if req.include_buffer:
+            for line in self.xray.get_buffer():
+                await stream.send_message(LogLine(line=line))
+        log_stm = await self.xray.get_logs_stm()
+        async with log_stm:
+            async for line in log_stm:
+                await stream.send_message(LogLine(line=line))
 
-    async def FetchXrayConfig(self, stream: 'grpclib.server.Stream[marznode.service.service_pb2.Empty,'
-                                            'marznode.service.service_pb2.XrayConfig]') -> None:
+    async def FetchXrayConfig(self, stream: Stream[Empty, XrayConfig_pb2]) -> None:
         await stream.recv_message()
         with open(config.XRAY_CONFIG_PATH, 'r') as f:
             content = f.read()

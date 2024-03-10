@@ -44,6 +44,10 @@ message XrayConfig {
   string configuration = 1;
 }
 
+message XrayLogsRequest {
+  bool include_buffer = 1;
+}
+
 service MarzService {
   rpc SyncUsers(stream UserData) returns (Empty);
   rpc RepopulateUsers(UsersData) returns (Empty);
@@ -51,5 +55,5 @@ service MarzService {
   rpc FetchUsersStats(Empty) returns (UsersStats);
   rpc FetchXrayConfig(Empty) returns (XrayConfig);
   rpc RestartXray(XrayConfig) returns (InboundsResponse);
-  rpc StreamXrayLogs(Empty) returns(stream LogLine);
+  rpc StreamXrayLogs(XrayLogsRequest) returns(stream LogLine);
 }

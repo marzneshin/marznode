@@ -39,7 +39,7 @@ class MarzServiceBase(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def StreamXrayLogs(self, stream: 'grpclib.server.Stream[marznode.service.service_pb2.Empty, marznode.service.service_pb2.LogLine]') -> None:
+    async def StreamXrayLogs(self, stream: 'grpclib.server.Stream[marznode.service.service_pb2.XrayLogsRequest, marznode.service.service_pb2.LogLine]') -> None:
         pass
 
     def __mapping__(self) -> typing.Dict[str, grpclib.const.Handler]:
@@ -83,7 +83,7 @@ class MarzServiceBase(abc.ABC):
             '/marznode.MarzService/StreamXrayLogs': grpclib.const.Handler(
                 self.StreamXrayLogs,
                 grpclib.const.Cardinality.UNARY_STREAM,
-                marznode.service.service_pb2.Empty,
+                marznode.service.service_pb2.XrayLogsRequest,
                 marznode.service.service_pb2.LogLine,
             ),
         }
@@ -131,6 +131,6 @@ class MarzServiceStub:
         self.StreamXrayLogs = grpclib.client.UnaryStreamMethod(
             channel,
             '/marznode.MarzService/StreamXrayLogs',
-            marznode.service.service_pb2.Empty,
+            marznode.service.service_pb2.XrayLogsRequest,
             marznode.service.service_pb2.LogLine,
         )
