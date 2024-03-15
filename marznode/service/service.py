@@ -9,6 +9,7 @@ from collections import defaultdict
 from grpclib.server import Stream
 
 from marznode.storage import BaseStorage
+from marznode.utils.network import find_free_port
 from marznode.xray_api import XrayAPI
 from marznode.xray_api.exceptions import EmailExistsError, EmailNotFoundError
 from marznode.xray_api.types.account import accounts_map
@@ -18,6 +19,7 @@ from .service_pb2 import XrayConfig as XrayConfig_pb2
 from .. import config
 from ..xray.base import XrayCore
 from ..xray.config import XrayConfig
+from ..xray_api import XrayAPI
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +150,8 @@ class MarzService(MarzServiceBase):
 
     async def RestartXray(self, stream: Stream[XrayConfig_pb2, InboundsResponse]) -> None:
         message = await stream.recv_message()
-        xconfig = XrayConfig(message.configuration, storage=self.storage)
+        api_port = find_free_port()
+        xconfig = XrayConfig(message.configuration, storage=self.storage, api_port=api_port)
         await self.storage.flush_users()
         await self.xray.restart(xconfig)
         stored_inbounds = await self.storage.list_inbounds()
@@ -156,3 +159,4 @@ class MarzService(MarzServiceBase):
         await stream.send_message(InboundsResponse(inbounds=inbounds))
         with open(config.XRAY_CONFIG_PATH, 'w') as f:
             f.write(message.configuration)
+        self.api = XrayAPI("127.0.0.1", api_port)

@@ -11,6 +11,7 @@ from marznode import config
 from marznode.service import MarzService
 from marznode.storage import MemoryStorage
 from marznode.utils.ssl import generate_keypair, create_secure_context
+from marznode.utils.network import find_free_port
 from marznode.xray.base import XrayCore
 from marznode.xray.config import XrayConfig
 from marznode.xray_api import XrayAPI
@@ -35,11 +36,13 @@ async def main():
                                             config.SSL_KEY_FILE,
                                             trusted=config.SSL_CLIENT_CERT_FILE)
 
+    xray_api_port = find_free_port()
+
     storage = MemoryStorage()
-    xray_config = XrayConfig(config.XRAY_CONFIG_PATH, storage)
+    xray_config = XrayConfig(config.XRAY_CONFIG_PATH, storage, api_port=xray_api_port)
     xray = XrayCore(config.XRAY_EXECUTABLE_PATH, config.XRAY_ASSETS_PATH)
     await xray.start(xray_config)
-    xray_api = XrayAPI("127.0.0.1", 8080)
+    xray_api = XrayAPI("127.0.0.1", xray_api_port)
     server = Server([MarzService(xray_api, storage, xray), Health()])
 
     with graceful_exit([server]):
