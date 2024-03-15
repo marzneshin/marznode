@@ -16,6 +16,7 @@
     },
     "inbounds": [
         {
+            "tag": "vmess HTTP",
             "listen": "0.0.0.0",
             "port": 2086,
             "protocol": "vmess",
