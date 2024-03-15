@@ -20,14 +20,20 @@ logger = logging.getLogger(__name__)
 
 async def main():
     """start up and run xray and the service"""
-    if not all((os.path.isfile(config.SSL_CERT_FILE),
-                os.path.isfile(config.SSL_KEY_FILE))):
-        logger.info("Generating a keypair for Marz-node.")
-        generate_keypair(config.SSL_KEY_FILE, config.SSL_CERT_FILE)
-
-    if not os.path.isfile(config.SSL_CLIENT_CERT_FILE):
-        logger.error("No certificate provided for the client; exiting.")
-        sys.exit(1)
+    if config.INSECURE:
+        ssl_context = None
+    else:
+        if not all((os.path.isfile(config.SSL_CERT_FILE),
+                    os.path.isfile(config.SSL_KEY_FILE))):
+            logger.info("Generating a keypair for Marz-node.")
+            generate_keypair(config.SSL_KEY_FILE, config.SSL_CERT_FILE)
+    
+        if not os.path.isfile(config.SSL_CLIENT_CERT_FILE):
+            logger.error("No certificate provided for the client; exiting.")
+            sys.exit(1)
+        ssl_context = create_secure_context(config.SSL_CERT_FILE,
+                                            config.SSL_KEY_FILE,
+                                            trusted=config.SSL_CLIENT_CERT_FILE)
 
     storage = MemoryStorage()
     xray_config = XrayConfig(config.XRAY_CONFIG_PATH, storage)
@@ -37,7 +43,6 @@ async def main():
     server = Server([MarzService(xray_api, storage, xray), Health()])
 
     with graceful_exit([server]):
-        await server.start(config.SERVICE_ADDRESS, config.SERVICE_PORT, ssl=create_secure_context(
-            config.SSL_CERT_FILE, config.SSL_KEY_FILE, trusted=config.SSL_CLIENT_CERT_FILE))
+        await server.start(config.SERVICE_ADDRESS, config.SERVICE_PORT, ssl=ssl_context)
         logger.info("Node service running on %s:%i", config.SERVICE_ADDRESS, config.SERVICE_PORT)
         await server.wait_closed()
