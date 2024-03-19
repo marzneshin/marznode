@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "marznode"
+dynamic = ["version"]
+requires-python = ">= 3.10"
+authors = [
+    {name = "Dawsh", email = "dawsh@duck.com"}
+]
+maintainers = [
+    {name = "Dawsh", email = "dawsh@duck.com"}
+]
+description = "yet another controller for vpn servers"
+readme = "README.md"
+keywords = ["marzneshin", "xray", "xray-core", "vpn", "proxy"]
+
+[tool.black]
+extend-exclude = "(.*_grpc.py|.*_pb2.py)"
