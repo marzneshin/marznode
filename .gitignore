@@ -169,3 +169,5 @@ xray-core
 *config.json
 bin/
 pyvenv.cfg
+_version.py
+
