@@ -17,6 +17,7 @@ from .service_pb2 import UserData, Empty, InboundsResponse, Inbound, UsersStats,
 from .service_pb2 import XrayConfig as XrayConfig_pb2
 from .. import config
 from marznode.backends.base import VPNBackend
+from ..models import User, Inbound as InboundModel
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +37,17 @@ class MarzService(MarzServiceBase):
 
     async def _add_user(self, user_data: UserData):
         user = user_data.user
-        inbound_addition_list = [i.tag for i in user_data.inbounds]
-        inbound_additions = await self._storage.list_inbounds(tag=inbound_addition_list)
-        await self._storage.add_user(
-            {"id": user.id, "username": user.username, "key": user.key},
-            [i["tag"] for i in inbound_additions],
+        inbound_tags = [i.tag for i in user_data.inbounds]
+        inbound_additions = await self._storage.list_inbounds(tag=inbound_tags)
+        for inbound in inbound_additions:
+            backend = self._resolve_tag(inbound.tag)
+            await backend.add_user(user, inbound)
+        await self._storage.update_user_inbounds(
+            User(id=user.id, username=user.username, key=user.key),
+            [i for i in inbound_additions],
         )
         storage_user = await self._storage.list_users(user.id)
-        await self._add_user_to_inbounds(storage_user, set(inbound_addition_list))
+        # await self._add_user_to_inbounds(storage_user, set(inbound_addition_list))
 
     async def _add_user_to_inbounds(self, storage_user, inbounds: set[str]):
         logger.info(
@@ -110,14 +114,13 @@ class MarzService(MarzServiceBase):
     async def FetchInbounds(
         self,
         stream: (
-            "grpclib.server.Stream[marznode.service.service_pb2.Empty, "
-            "marznode.service.service_pb2.InboundsResponse]"
+            Stream[Empty, InboundsResponse]
         ),
     ) -> None:
         await stream.recv_message()
         stored_inbounds = await self._storage.list_inbounds()
         inbounds = [
-            Inbound(tag=i["tag"], config=json.dumps(i)) for i in stored_inbounds
+            Inbound(tag=i.tag, config=json.dumps(i.config)) for i in stored_inbounds
         ]
         await stream.send_message(InboundsResponse(inbounds=inbounds))
 
@@ -133,7 +136,7 @@ class MarzService(MarzServiceBase):
             await self._update_user(user_data)
         user_ids = {user_data.user.id for user_data in users_data}
         for storage_user in await self._storage.list_users():
-            if storage_user["id"] not in user_ids:
+            if storage_user.id not in user_ids:
                 await self._remove_user(storage_user)
         await stream.send_message(Empty())
 

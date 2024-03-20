@@ -32,16 +32,16 @@ class MemoryStorage(BaseStorage):
             # return [i for i in self.storage["inbounds"].values() if i.tag in tag]
         return list(self.storage["inbounds"].values())
 
-    async def add_user(self, user: User, inbounds: list[Inbound]) -> None:
-        self.storage["users"][user["id"]] = {**user, "inbound_tags": inbounds}
-
-    async def remove_user(self, user_id: int) -> None:
-        del self.storage["users"][user_id]
+    async def remove_user(self, user: User) -> None:
+        del self.storage["users"][user.id]
 
     async def update_user_inbounds(self, user: User, inbounds: list[Inbound]) -> None:
-        self.storage["users"][user].inbounds = inbounds
+        if self.storage["users"].get(user.id):
+            self.storage["users"][user.id].inbounds = inbounds
+        user.inbounds = inbounds
+        self.storage["users"][user.id] = user
 
-    def set_inbounds(self, inbounds: dict[str, dict]) -> None:
+    def set_inbounds(self, inbounds: dict[str, Inbound]) -> None:
         self.storage["inbounds"] = inbounds
 
     async def flush_users(self):

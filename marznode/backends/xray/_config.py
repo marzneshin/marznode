@@ -247,8 +247,6 @@ class XrayConfig(dict):
             except KeyError:
                 self.inbounds_by_protocol[inbound["protocol"]] = [settings]
 
-        self.storage.set_inbounds(self.inbounds_by_tag)
-
     def add_inbound_client(self, inbound_tag: str, email: str, settings: dict):
         inbound = self.inbounds_by_tag.get(inbound_tag, {})
         client = {"email": email, **settings}

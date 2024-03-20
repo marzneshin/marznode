@@ -8,6 +8,10 @@ from marznode.models import User, Inbound
 
 class VPNBackend(ABC):
     @abstractmethod
+    def contains_tag(self, tag: str) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
     async def start(self) -> None:
         raise NotImplementedError
 
