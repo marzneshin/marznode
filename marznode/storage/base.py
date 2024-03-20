@@ -52,7 +52,7 @@ class BaseStorage(ABC):
         """
 
     @abstractmethod
-    def set_inbounds(self, inbounds: dict[str, dict]) -> None:
+    def set_inbounds(self, inbounds: list[Inbound]) -> None:
         """
         resets all inbounds
         :param inbounds: inbounds

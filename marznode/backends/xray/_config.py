@@ -3,7 +3,6 @@ import json
 import commentjson
 
 from marznode.config import XRAY_EXECUTABLE_PATH
-from marznode.storage.base import BaseStorage
 from ._utils import get_x25519
 
 
@@ -11,7 +10,6 @@ class XrayConfig(dict):
     def __init__(
         self,
         config: str,
-        storage: BaseStorage,
         api_host: str = "127.0.0.1",
         api_port: int = 8080,
     ):
@@ -25,8 +23,6 @@ class XrayConfig(dict):
 
         self.api_host = api_host
         self.api_port = api_port
-
-        self.storage = storage
 
         super().__init__(config)
         self._validate()

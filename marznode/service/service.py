@@ -10,9 +10,16 @@ from collections import defaultdict
 from grpclib.server import Stream
 
 from marznode.storage import BaseStorage
-from marznode.utils.network import find_free_port
 from .service_grpc import MarzServiceBase
-from .service_pb2 import UserData, Empty, InboundsResponse, Inbound, UsersStats, LogLine
+from .service_pb2 import (
+    UserData,
+    UsersData,
+    Empty,
+    InboundsResponse,
+    Inbound,
+    UsersStats,
+    LogLine,
+)
 from .service_pb2 import XrayConfig as XrayConfig_pb2
 from .. import config
 from marznode.backends.base import VPNBackend
@@ -45,11 +52,12 @@ class MarzService(MarzServiceBase):
             await backend.remove_user(user, inbound)
 
     async def _update_user(self, user_data: UserData):
-        logger.debug(user_data)
         user = user_data.user
         user = User(id=user.id, username=user.username, key=user.key)
         storage_user = await self._storage.list_users(user.id)
         if not storage_user and len(user_data.inbounds) > 0:
+            """add the user in case there isn't any currently
+            and the inbounds is non-empty"""
             inbound_tags = [i.tag for i in user_data.inbounds]
             inbound_additions = await self._storage.list_inbounds(tag=inbound_tags)
             await self._add_user(user, inbound_additions)
@@ -59,9 +67,13 @@ class MarzService(MarzServiceBase):
             )
             return
         elif not user_data.inbounds and storage_user:
+            """remove in case we have th user but client has sent
+            us an empty list of inbounds"""
             await self._remove_user(storage_user, storage_user.inbounds)
             return await self._storage.remove_user(user)
 
+        """otherwise synchronize the user with what 
+        the client has sent us"""
         storage_tags = {i.tag for i in storage_user.inbounds}
         new_tags = {i.tag for i in user_data.inbounds}
         added_tags = new_tags - storage_tags
@@ -90,10 +102,7 @@ class MarzService(MarzServiceBase):
 
     async def RepopulateUsers(
         self,
-        stream: (
-            "grpclib.server.Stream[marznode.service.service_pb2.UsersData, "
-            "marznode.service.service_pb2.Empty]"
-        ),
+        stream: Stream[UsersData, Empty],
     ) -> None:
         users_data = (await stream.recv_message()).users_data
         for user_data in users_data:
@@ -120,13 +129,6 @@ class MarzService(MarzServiceBase):
         req = await stream.recv_message()
         async for line in self._backends[0].get_logs(req.include_buffer):
             await stream.send_message(LogLine(line=line))
-        if req.include_buffer:
-            for line in self.xray.get_buffer():
-                await stream.send_message(LogLine(line=line))
-        log_stm = await self.xray.get_logs_stm()
-        async with log_stm:
-            async for line in log_stm:
-                await stream.send_message(LogLine(line=line))
 
     async def FetchXrayConfig(self, stream: Stream[Empty, XrayConfig_pb2]) -> None:
         await stream.recv_message()
@@ -138,17 +140,14 @@ class MarzService(MarzServiceBase):
         self, stream: Stream[XrayConfig_pb2, InboundsResponse]
     ) -> None:
         message = await stream.recv_message()
-        api_port = find_free_port()
-        xconfig = XrayConfig(
-            message.configuration, storage=self._storage, api_port=api_port
-        )
+
         await self._storage.flush_users()
-        await self.xray.restart(xconfig)
-        stored_inbounds = await self._storage.list_inbounds()
-        inbounds = [
-            Inbound(tag=i["tag"], config=json.dumps(i)) for i in stored_inbounds
+        inbounds = await self._backends[0].restart(message.configuration)
+        if inbounds:
+            self._storage.set_inbounds(inbounds)
+        pb2_inbounds = [
+            Inbound(tag=i.tag, config=json.dumps(i.config)) for i in inbounds
         ]
-        await stream.send_message(InboundsResponse(inbounds=inbounds))
+        await stream.send_message(InboundsResponse(inbounds=pb2_inbounds))
         with open(config.XRAY_CONFIG_PATH, "w") as f:
             f.write(message.configuration)
-        self.api = XrayAPI("127.0.0.1", api_port)

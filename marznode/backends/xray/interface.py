@@ -1,5 +1,6 @@
 """What a vpn server should do"""
 
+import asyncio
 import logging
 
 from marznode import config
@@ -23,16 +24,13 @@ logger = logging.getLogger(__name__)
 class XrayBackend(VPNBackend):
     def __init__(self, storage: BaseStorage):
         xray_api_port = find_free_port()
-        self._config = XrayConfig(
-            config.XRAY_CONFIG_PATH, storage, api_port=xray_api_port
-        )
-        xray_inbounds = self._config.inbounds_by_tag
-        xray_inbounds = {
-            k: Inbound(tag=i["tag"], protocol=i["protocol"], config=i)
-            for k, i in xray_inbounds.items()
-        }
+        self._config = XrayConfig(config.XRAY_CONFIG_PATH, api_port=xray_api_port)
+        xray_inbounds = [
+            Inbound(tag=i["tag"], protocol=i["protocol"], config=i)
+            for i in self._config.inbounds_by_tag.values()
+        ]
         storage.set_inbounds(xray_inbounds)
-        self._inbound_tags = set(xray_inbounds.keys())
+        self._inbound_tags = {i.tag for i in xray_inbounds}
         self._api = XrayAPI("127.0.0.1", xray_api_port)
         self._runner = XrayCore(config.XRAY_EXECUTABLE_PATH, config.XRAY_ASSETS_PATH)
 
@@ -42,9 +40,21 @@ class XrayBackend(VPNBackend):
     async def start(self):
         await self._runner.start(self._config)
 
-    async def restart(self, xconfig: XrayConfig | None):
-        xconfig = xconfig if xconfig else self._config
-        await self._runner.restart(xconfig)
+    async def restart(self, backend_config: str | None) -> list[Inbound] | None:
+        # xray_config = backend_config if backend_config else self._config
+        if not backend_config:
+            return await self._runner.restart(self._config)
+        api_port = find_free_port()
+        xray_config = XrayConfig(backend_config, api_port=api_port)
+        xray_inbounds = [
+            Inbound(tag=i["tag"], protocol=i["protocol"], config=i)
+            for i in self._config.inbounds_by_tag.values()
+        ]
+        await self._runner.restart(xray_config)
+        self._api = XrayAPI("127.0.0.1", api_port)
+        await asyncio.sleep(0.1)  # wait until xray api is up,
+        # I'd rather check if the port is open manually but this is lazier. for now.
+        return xray_inbounds
 
     async def add_user(self, user: User, inbound: Inbound):
         email = f"{user.id}.{user.username}"

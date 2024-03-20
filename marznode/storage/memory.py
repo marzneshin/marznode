@@ -41,8 +41,8 @@ class MemoryStorage(BaseStorage):
         user.inbounds = inbounds
         self.storage["users"][user.id] = user
 
-    def set_inbounds(self, inbounds: dict[str, Inbound]) -> None:
-        self.storage["inbounds"] = inbounds
+    def set_inbounds(self, inbounds: list[Inbound]) -> None:
+        self.storage["inbounds"] = {i.tag: i for i in inbounds}
 
     async def flush_users(self):
         self.storage["users"] = {}

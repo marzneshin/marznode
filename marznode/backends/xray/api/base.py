@@ -3,7 +3,7 @@
 import atexit
 import ssl
 
-import grpclib
+from grpclib import client
 
 
 class XrayAPIBase:
@@ -19,7 +19,5 @@ class XrayAPIBase:
             self.ssl_context.check_hostname = False
         self.address = address
         self.port = port
-        self._channel = grpclib.client.Channel(
-            self.address, self.port, ssl=self.ssl_context
-        )
+        self._channel = client.Channel(self.address, self.port, ssl=self.ssl_context)
         atexit.register(self._channel.close)
