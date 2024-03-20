@@ -1,4 +1,5 @@
 """What a vpn server should do"""
+
 import logging
 
 from marznode import config
@@ -26,7 +27,10 @@ class XrayBackend(VPNBackend):
             config.XRAY_CONFIG_PATH, storage, api_port=xray_api_port
         )
         xray_inbounds = self._config.inbounds_by_tag
-        xray_inbounds = {k: Inbound(tag=i["tag"], protocol=i["protocol"], config=i) for k, i in xray_inbounds.items()}
+        xray_inbounds = {
+            k: Inbound(tag=i["tag"], protocol=i["protocol"], config=i)
+            for k, i in xray_inbounds.items()
+        }
         storage.set_inbounds(xray_inbounds)
         self._inbound_tags = set(xray_inbounds.keys())
         self._api = XrayAPI("127.0.0.1", xray_api_port)
@@ -60,5 +64,11 @@ class XrayBackend(VPNBackend):
         except (EmailNotFoundError, TagNotFoundError):
             raise
 
-    async def get_logs(self):
-        raise NotImplementedError
+    async def get_logs(self, include_buffer: bool = True):
+        if include_buffer:
+            for line in self._runner.get_buffer():
+                yield line
+        log_stm = self._runner.get_logs_stm()
+        async with log_stm:
+            async for line in log_stm:
+                yield line

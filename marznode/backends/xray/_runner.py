@@ -87,7 +87,7 @@ class XrayCore:
                     continue
             self._logs_buffer.append(output)
 
-    async def get_logs_stm(self):
+    def get_logs_stm(self):
         new_snd_stm, new_rcv_stm = create_memory_object_stream()
         self._snd_streams.append(new_snd_stm)
         return new_rcv_stm

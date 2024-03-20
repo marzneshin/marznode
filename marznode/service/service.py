@@ -101,7 +101,7 @@ class MarzService(MarzServiceBase):
         user_ids = {user_data.user.id for user_data in users_data}
         for storage_user in await self._storage.list_users():
             if storage_user.id not in user_ids:
-                await self._remove_user(storage_user)
+                await self._remove_user(storage_user, storage_user.inbounds)
         await stream.send_message(Empty())
 
     async def FetchUsersStats(self, stream: Stream[Empty, UsersStats]) -> None:
@@ -118,6 +118,8 @@ class MarzService(MarzServiceBase):
 
     async def StreamXrayLogs(self, stream: Stream[Empty, LogLine]) -> None:
         req = await stream.recv_message()
+        async for line in self._backends[0].get_logs(req.include_buffer):
+            await stream.send_message(LogLine(line=line))
         if req.include_buffer:
             for line in self.xray.get_buffer():
                 await stream.send_message(LogLine(line=line))
