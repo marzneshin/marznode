@@ -1,13 +1,10 @@
 import json
-from copy import deepcopy
-from pathlib import PosixPath
-from typing import Union
 
 import commentjson
 
 from marznode.config import XRAY_EXECUTABLE_PATH
 from marznode.storage.base import BaseStorage
-from .utils import get_x25519
+from ._utils import get_x25519
 
 
 class XrayConfig(dict):

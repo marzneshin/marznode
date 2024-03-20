@@ -7,8 +7,8 @@ from collections import deque
 
 from anyio import create_memory_object_stream, ClosedResourceError, BrokenResourceError
 
-from .config import XrayConfig
-from .utils import get_version
+from ._config import XrayConfig
+from ._utils import get_version
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class XrayCore:
         await self.process.stdin.drain()
         self.process.stdin.close()
         await self.process.stdin.wait_closed()
-        logger.warning("Xray core %s started", self.version)
+        logger.info("Xray core %s started", self.version)
 
         asyncio.create_task(self.__capture_process_logs())
 

@@ -1,2 +1,2 @@
-from inbound import *
-from user import User
+from .inbound import Inbound
+from .user import User

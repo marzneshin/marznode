@@ -11,15 +11,12 @@ from grpclib.server import Stream
 
 from marznode.storage import BaseStorage
 from marznode.utils.network import find_free_port
-from marznode.backends.xray.api import EmailExistsError, EmailNotFoundError
 from marznode.backends.xray.api.types.account import accounts_map
 from .service_grpc import MarzServiceBase
 from .service_pb2 import UserData, Empty, InboundsResponse, Inbound, UsersStats, LogLine
 from .service_pb2 import XrayConfig as XrayConfig_pb2
 from .. import config
-from marznode.backends.xray import XrayCore
-from marznode.backends.xray import XrayConfig
-from marznode.backends.xray.api import XrayAPI
+from marznode.backends.base import VPNBackend
 
 logger = logging.getLogger(__name__)
 
@@ -27,27 +24,32 @@ logger = logging.getLogger(__name__)
 class MarzService(MarzServiceBase):
     """Add/Update/Delete users based on calls from the client"""
 
-    def __init__(self, api: XrayAPI, storage: BaseStorage, xray: XrayCore):
-        self.api = api
-        self.storage = storage
-        self.xray = xray
+    def __init__(self, storage: BaseStorage, backends: list[VPNBackend]):
+        self._backends = backends
+        self._storage = storage
+
+    def _resolve_tag(self, inbound_tag: str) -> VPNBackend:
+        for backend in self._backends:
+            if backend.contains_tag(inbound_tag):
+                return backend
+        raise
 
     async def _add_user(self, user_data: UserData):
         user = user_data.user
         inbound_addition_list = [i.tag for i in user_data.inbounds]
-        inbound_additions = await self.storage.list_inbounds(tag=inbound_addition_list)
-        await self.storage.add_user(
+        inbound_additions = await self._storage.list_inbounds(tag=inbound_addition_list)
+        await self._storage.add_user(
             {"id": user.id, "username": user.username, "key": user.key},
             [i["tag"] for i in inbound_additions],
         )
-        storage_user = await self.storage.list_users(user.id)
+        storage_user = await self._storage.list_users(user.id)
         await self._add_user_to_inbounds(storage_user, set(inbound_addition_list))
 
     async def _add_user_to_inbounds(self, storage_user, inbounds: set[str]):
         logger.info(
             "Adding user `%s` to inbounds `%s`", storage_user["username"], str(inbounds)
         )
-        inbound_additions = await self.storage.list_inbounds(tag=inbounds)
+        inbound_additions = await self._storage.list_inbounds(tag=inbounds)
         email = f"{storage_user['id']}.{storage_user['username']}"
         key = storage_user["key"]
         for i in inbound_additions:
@@ -56,7 +58,7 @@ class MarzService(MarzServiceBase):
             inbound_tag = i["tag"]
             try:
                 await self.api.add_inbound_user(inbound_tag, user_account)
-            except EmailExistsError:
+            except:
                 logger.warning(
                     "Request to add an already existing user `%s` to tag `%s`.",
                     email,
@@ -70,7 +72,7 @@ class MarzService(MarzServiceBase):
         email = f"{user['id']}.{user['username']}"
 
         await self._remove_email_from_inbounds(email, tags)
-        await self.storage.remove_user(user["id"])
+        await self._storage.remove_user(user["id"])
 
     async def _remove_email_from_inbounds(self, email, tags: list[str]):
         for tag in tags:
@@ -86,7 +88,7 @@ class MarzService(MarzServiceBase):
     async def _update_user(self, user_data: UserData):
         logger.debug(user_data)
         user = user_data.user
-        storage_user = await self.storage.list_users(user.id)
+        storage_user = await self._storage.list_users(user.id)
         if not storage_user:
             return await self._add_user(user_data)
         elif not user_data.inbounds:
@@ -99,7 +101,7 @@ class MarzService(MarzServiceBase):
         email = f"{storage_user['id']}.{storage_user['username']}"
         await self._remove_email_from_inbounds(email, removed_inbounds)
         await self._add_user_to_inbounds(storage_user, added_inbounds)
-        self.storage.storage["users"][user.id]["inbound_tags"] = new_inbounds
+        self._storage.storage["users"][user.id]["inbound_tags"] = new_inbounds
 
     async def SyncUsers(self, stream: "Stream[UserData," "Empty]") -> None:
         async for user_data in stream:
@@ -113,7 +115,7 @@ class MarzService(MarzServiceBase):
         ),
     ) -> None:
         await stream.recv_message()
-        stored_inbounds = await self.storage.list_inbounds()
+        stored_inbounds = await self._storage.list_inbounds()
         inbounds = [
             Inbound(tag=i["tag"], config=json.dumps(i)) for i in stored_inbounds
         ]
@@ -130,7 +132,7 @@ class MarzService(MarzServiceBase):
         for user_data in users_data:
             await self._update_user(user_data)
         user_ids = {user_data.user.id for user_data in users_data}
-        for storage_user in await self.storage.list_users():
+        for storage_user in await self._storage.list_users():
             if storage_user["id"] not in user_ids:
                 await self._remove_user(storage_user)
         await stream.send_message(Empty())
@@ -169,11 +171,11 @@ class MarzService(MarzServiceBase):
         message = await stream.recv_message()
         api_port = find_free_port()
         xconfig = XrayConfig(
-            message.configuration, storage=self.storage, api_port=api_port
+            message.configuration, storage=self._storage, api_port=api_port
         )
-        await self.storage.flush_users()
+        await self._storage.flush_users()
         await self.xray.restart(xconfig)
-        stored_inbounds = await self.storage.list_inbounds()
+        stored_inbounds = await self._storage.list_inbounds()
         inbounds = [
             Inbound(tag=i["tag"], config=json.dumps(i)) for i in stored_inbounds
         ]

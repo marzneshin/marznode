@@ -9,13 +9,11 @@ from grpclib.server import Server
 from grpclib.utils import graceful_exit
 
 from marznode import config
+from marznode.backends.xray.interface import XrayBackend
 from marznode.service import MarzService
 from marznode.storage import MemoryStorage
 from marznode.utils.ssl import generate_keypair, create_secure_context
-from marznode.utils.network import find_free_port
-from marznode.backends.xray.base import XrayCore
-from marznode.backends.xray.config import XrayConfig
-from marznode.backends.xray.api import XrayAPI
+
 
 logger = logging.getLogger(__name__)
 
@@ -40,14 +38,11 @@ async def main():
             trusted=config.SSL_CLIENT_CERT_FILE,
         )
 
-    xray_api_port = find_free_port()
-
     storage = MemoryStorage()
-    xray_config = XrayConfig(config.XRAY_CONFIG_PATH, storage, api_port=xray_api_port)
-    xray = XrayCore(config.XRAY_EXECUTABLE_PATH, config.XRAY_ASSETS_PATH)
-    await xray.start(xray_config)
-    xray_api = XrayAPI("127.0.0.1", xray_api_port)
-    server = Server([MarzService(xray_api, storage, xray), Health()])
+    xray_backend = XrayBackend(storage)
+    await xray_backend.start()
+    backends = [xray_backend]
+    server = Server([MarzService(storage, backends), Health()])
 
     with graceful_exit([server]):
         await server.start(config.SERVICE_ADDRESS, config.SERVICE_PORT, ssl=ssl_context)
