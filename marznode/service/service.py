@@ -11,7 +11,6 @@ from grpclib.server import Stream
 
 from marznode.storage import BaseStorage
 from marznode.utils.network import find_free_port
-from marznode.backends.xray.api.types.account import accounts_map
 from .service_grpc import MarzServiceBase
 from .service_pb2 import UserData, Empty, InboundsResponse, Inbound, UsersStats, LogLine
 from .service_pb2 import XrayConfig as XrayConfig_pb2
@@ -35,77 +34,44 @@ class MarzService(MarzServiceBase):
                 return backend
         raise
 
-    async def _add_user(self, user_data: UserData):
-        user = user_data.user
-        inbound_tags = [i.tag for i in user_data.inbounds]
-        inbound_additions = await self._storage.list_inbounds(tag=inbound_tags)
-        for inbound in inbound_additions:
+    async def _add_user(self, user: User, inbounds: list[Inbound]):
+        for inbound in inbounds:
             backend = self._resolve_tag(inbound.tag)
             await backend.add_user(user, inbound)
-        await self._storage.update_user_inbounds(
-            User(id=user.id, username=user.username, key=user.key),
-            [i for i in inbound_additions],
-        )
-        storage_user = await self._storage.list_users(user.id)
-        # await self._add_user_to_inbounds(storage_user, set(inbound_addition_list))
 
-    async def _add_user_to_inbounds(self, storage_user, inbounds: set[str]):
-        logger.info(
-            "Adding user `%s` to inbounds `%s`", storage_user["username"], str(inbounds)
-        )
-        inbound_additions = await self._storage.list_inbounds(tag=inbounds)
-        email = f"{storage_user['id']}.{storage_user['username']}"
-        key = storage_user["key"]
-        for i in inbound_additions:
-            account_class = accounts_map[i["protocol"]]
-            user_account = account_class(email=email, seed=key)
-            inbound_tag = i["tag"]
-            try:
-                await self.api.add_inbound_user(inbound_tag, user_account)
-            except:
-                logger.warning(
-                    "Request to add an already existing user `%s` to tag `%s`.",
-                    email,
-                    inbound_tag,
-                )
-            else:
-                logger.debug("User `%s` added to inbound `%s`", email, inbound_tag)
-
-    async def _remove_user(self, user):
-        tags = user["inbound_tags"]
-        email = f"{user['id']}.{user['username']}"
-
-        await self._remove_email_from_inbounds(email, tags)
-        await self._storage.remove_user(user["id"])
-
-    async def _remove_email_from_inbounds(self, email, tags: list[str]):
-        for tag in tags:
-            try:
-                await self.api.remove_inbound_user(tag, email)
-            except EmailNotFoundError:
-                logger.warning(
-                    "Request to remove non existing user `%s` from tag `%s`", email, tag
-                )
-            else:
-                logger.debug("User `%s` removed from inbound `%s`", email, tag)
+    async def _remove_user(self, user: User, inbounds: list[InboundModel]):
+        for inbound in inbounds:
+            backend = self._resolve_tag(inbound.tag)
+            await backend.remove_user(user, inbound)
 
     async def _update_user(self, user_data: UserData):
         logger.debug(user_data)
         user = user_data.user
+        user = User(id=user.id, username=user.username, key=user.key)
         storage_user = await self._storage.list_users(user.id)
-        if not storage_user:
-            return await self._add_user(user_data)
-        elif not user_data.inbounds:
-            return await self._remove_user(storage_user)
+        if not storage_user and len(user_data.inbounds) > 0:
+            inbound_tags = [i.tag for i in user_data.inbounds]
+            inbound_additions = await self._storage.list_inbounds(tag=inbound_tags)
+            await self._add_user(user, inbound_additions)
+            await self._storage.update_user_inbounds(
+                user,
+                [i for i in inbound_additions],
+            )
+            return
+        elif not user_data.inbounds and storage_user:
+            await self._remove_user(storage_user, storage_user.inbounds)
+            return await self._storage.remove_user(user)
 
-        storage_inbounds = set(storage_user["inbound_tags"])
-        new_inbounds = {i.tag for i in user_data.inbounds}
-        added_inbounds = new_inbounds - storage_inbounds
-        removed_inbounds = storage_inbounds - new_inbounds
-        email = f"{storage_user['id']}.{storage_user['username']}"
-        await self._remove_email_from_inbounds(email, removed_inbounds)
-        await self._add_user_to_inbounds(storage_user, added_inbounds)
-        self._storage.storage["users"][user.id]["inbound_tags"] = new_inbounds
+        storage_tags = {i.tag for i in storage_user.inbounds}
+        new_tags = {i.tag for i in user_data.inbounds}
+        added_tags = new_tags - storage_tags
+        removed_tags = storage_tags - new_tags
+        new_inbounds = await self._storage.list_inbounds(tag=list(new_tags))
+        added_inbounds = await self._storage.list_inbounds(tag=list(added_tags))
+        removed_inbounds = await self._storage.list_inbounds(tag=list(removed_tags))
+        await self._remove_user(storage_user, removed_inbounds)
+        await self._add_user(storage_user, added_inbounds)
+        await self._storage.update_user_inbounds(storage_user, new_inbounds)
 
     async def SyncUsers(self, stream: "Stream[UserData," "Empty]") -> None:
         async for user_data in stream:
@@ -113,9 +79,7 @@ class MarzService(MarzServiceBase):
 
     async def FetchInbounds(
         self,
-        stream: (
-            Stream[Empty, InboundsResponse]
-        ),
+        stream: Stream[Empty, InboundsResponse],
     ) -> None:
         await stream.recv_message()
         stored_inbounds = await self._storage.list_inbounds()

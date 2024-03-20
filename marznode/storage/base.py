@@ -37,10 +37,10 @@ class BaseStorage(ABC):
         """
 
     @abstractmethod
-    async def remove_user(self, user_id: int) -> None:
+    async def remove_user(self, user: User) -> None:
         """
         removes a user and all the inbounds
-        :param user_id: the user's id
+        :param user: the user
         :return: nothing
         """
 
