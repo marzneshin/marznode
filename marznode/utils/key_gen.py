@@ -1,4 +1,5 @@
 """Used to generate uuid/password based on the seed"""
+
 import uuid
 
 import xxhash

@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "marznode"
+dynamic = ["version"]
+dependencies = [
+    "anyio >= 4.2.0",
+    "commentjson >= 0.9.0",
+    "grpclib >= 0.4.7",
+    "pydantic >= 2.6.0",
+    "pyOpenSSL >= 24.0.0",
+    "python-decouple >= 3.8",
+    "Requests >= 2.31.0",
+    "xxhash >= 3.4.1",
+]
+requires-python = ">= 3.10"
+authors = [
+    {name = "Dawsh", email = "dawsh@duck.com"}
+]
+maintainers = [
+    {name = "Dawsh", email = "dawsh@duck.com"}
+]
+description = "yet another controller for vpn servers"
+readme = "README.md"
+keywords = ["marzneshin", "xray", "xray-core", "vpn", "proxy"]
+
+[project.urls]
+Homepage = "https://github.com/khodedawsh/marznode"
+Repository = "https://github.com/khodedawsh/marznode.git"
+Issues = "https://github.com/khodedawsh/marznode/issues"
+
+[tool.black]
+extend-exclude = "(.*_grpc.py|.*_pb2.py)"
+
+[tool.hatch]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "marznode/_version.py"

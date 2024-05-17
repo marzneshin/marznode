@@ -1,4 +1,5 @@
 """loads config files from environment and env file"""
+
 from decouple import config
 from dotenv import load_dotenv
 

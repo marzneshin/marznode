@@ -1,4 +1,5 @@
 """Initiate logger for marznode"""
+
 import logging
 
 from marznode import config

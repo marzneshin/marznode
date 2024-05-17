@@ -1,5 +1,7 @@
 """Storage backend for storing marznode data in memory"""
+
 from .base import BaseStorage
+from ..models import User, Inbound
 
 
 class MemoryStorage(BaseStorage):
@@ -7,37 +9,40 @@ class MemoryStorage(BaseStorage):
     note that this isn't fit to use in production since data gets wiped on restarts
     so if Marzneshin is down users are lost until it gets back up
     """
+
     def __init__(self):
         self.storage = dict({"users": {}, "inbounds": {}})
 
-    async def list_users(self, user_id: int | None = None) -> list[dict] | dict | None:
+    async def list_users(self, user_id: int | None = None) -> list[User] | User | None:
         if user_id:
             return self.storage["users"].get(user_id)
         return list(self.storage["users"].values())
 
-    async def list_inbounds(self,
-                            tag: list[str] | str | None = None,
-                            include_users: bool = False
-                            ) -> list[dict] | dict | None:
+    async def list_inbounds(
+        self, tag: list[str] | str | None = None, include_users: bool = False
+    ) -> list[Inbound] | Inbound | None:
         if tag is not None:
             if isinstance(tag, str):
                 return self.storage["inbounds"][tag]
-            return [self.storage["inbounds"][t] for t in tag if t in self.storage["inbounds"]]
+            return [
+                self.storage["inbounds"][t]
+                for t in tag
+                if t in self.storage["inbounds"]
+            ]
             # return [i for i in self.storage["inbounds"].values() if i.tag in tag]
         return list(self.storage["inbounds"].values())
 
-    async def add_user(self, user: dict, inbounds: list[str]) -> None:
-        self.storage["users"][user["id"]] = {**user, "inbound_tags": inbounds}
+    async def remove_user(self, user: User) -> None:
+        del self.storage["users"][user.id]
 
-    async def remove_user(self, user_id: int) -> None:
-        del self.storage["users"][user_id]
+    async def update_user_inbounds(self, user: User, inbounds: list[Inbound]) -> None:
+        if self.storage["users"].get(user.id):
+            self.storage["users"][user.id].inbounds = inbounds
+        user.inbounds = inbounds
+        self.storage["users"][user.id] = user
 
-    async def update_user_inbounds(self, user_id: int, inbound_additions: list[str],
-                                   inbound_reductions: list[str]) -> None:
-        self.storage["users"][user_id]["inbound_tags"] = inbounds
-
-    def set_inbounds(self, inbounds: dict[str, dict]) -> None:
-        self.storage["inbounds"] = inbounds
+    def set_inbounds(self, inbounds: list[Inbound]) -> None:
+        self.storage["inbounds"] = {i.tag: i for i in inbounds}
 
     async def flush_users(self):
         self.storage["users"] = {}
