@@ -44,11 +44,13 @@ class MarzService(MarzServiceBase):
     async def _add_user(self, user: User, inbounds: list[Inbound]):
         for inbound in inbounds:
             backend = self._resolve_tag(inbound.tag)
+            logger.debug("adding user `%s` to inbound `%s`", user.username, inbound.tag)
             await backend.add_user(user, inbound)
 
     async def _remove_user(self, user: User, inbounds: list[InboundModel]):
         for inbound in inbounds:
             backend = self._resolve_tag(inbound.tag)
+            logger.debug("removing user `%s` from inbound `%s`", user.username, inbound.tag)
             await backend.remove_user(user, inbound)
 
     async def _update_user(self, user_data: UserData):
