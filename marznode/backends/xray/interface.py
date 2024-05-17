@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from collections import defaultdict
 
 from marznode import config
 from marznode.backends.base import VPNBackend
@@ -73,6 +74,14 @@ class XrayBackend(VPNBackend):
             await self._api.remove_inbound_user(inbound.tag, email)
         except (EmailNotFoundError, TagNotFoundError):
             raise
+
+    async def get_usages(self, reset: bool = True) -> dict[int, int]:
+        api_stats = await self._api.get_users_stats(reset=reset)
+        stats = defaultdict(int)
+        for stat in api_stats:
+            uid = int(stat.name.split(".")[0])
+            stats[uid] += stat.value
+        return stats
 
     async def get_logs(self, include_buffer: bool = True):
         if include_buffer:

@@ -31,3 +31,7 @@ class VPNBackend(ABC):
     @abstractmethod
     def get_logs(self, include_buffer: bool) -> AsyncIterator:
         raise NotImplementedError
+
+    @abstractmethod
+    async def get_usages(self):
+        raise NotImplementedError

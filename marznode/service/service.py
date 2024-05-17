@@ -115,11 +115,8 @@ class MarzService(MarzServiceBase):
 
     async def FetchUsersStats(self, stream: Stream[Empty, UsersStats]) -> None:
         await stream.recv_message()
-        api_stats = await self.api.get_users_stats(reset=True)
-        stats = defaultdict(int)
-        for stat in api_stats:
-            uid = int(stat.name.split(".")[0])
-            stats[uid] += stat.value
+        stats = await self._backends[0].get_usages()
+        logger.debug(stats)
         user_stats = [
             UsersStats.UserStats(uid=uid, usage=usage) for uid, usage in stats.items()
         ]
