@@ -25,7 +25,6 @@ class XrayConfig(dict):
         self.api_port = api_port
 
         super().__init__(config)
-        self._validate()
 
         self.inbounds = []
         self.inbounds_by_protocol = {}
@@ -68,28 +67,18 @@ class XrayConfig(dict):
             self["routing"] = {"rules": []}
         self["routing"]["rules"].insert(0, rule)
 
-    def _validate(self):
-        if not self.get("inbounds"):
-            raise ValueError("config doesn't have inbounds")
-
-        if not self.get("outbounds"):
-            raise ValueError("config doesn't have outbounds")
-
-        for inbound in self["inbounds"]:
-            if not inbound.get("tag"):
-                raise ValueError("all inbounds must have a unique tag")
-        for outbound in self["outbounds"]:
-            if not outbound.get("tag"):
-                raise ValueError("all outbounds must have a unique tag")
-
     def _resolve_inbounds(self):
         for inbound in self["inbounds"]:
-            if not inbound["protocol"].lower() in {
-                "vmess",
-                "trojan",
-                "vless",
-                "shadowsocks",
-            }:
+            if (
+                inbound["protocol"].lower()
+                not in {
+                    "vmess",
+                    "trojan",
+                    "vless",
+                    "shadowsocks",
+                }
+                or "tag" not in inbound
+            ):
                 continue
 
             if not inbound.get("settings"):
@@ -137,16 +126,9 @@ class XrayConfig(dict):
                             raise ValueError(
                                 f"You need to provide privateKey in realitySettings of {inbound['tag']}"
                             )
-                        try:
-                            x25519 = get_x25519(XRAY_EXECUTABLE_PATH, pvk)
-                            settings["pbk"] = x25519["public_key"]
-                        except ImportError:
-                            pass
+                        x25519 = get_x25519(XRAY_EXECUTABLE_PATH, pvk)
+                        settings["pbk"] = x25519["public_key"]
 
-                        if not settings.get("pbk"):
-                            raise ValueError(
-                                f"You need to provide publicKey in realitySettings of {inbound['tag']}"
-                            )
                     try:
                         settings["sid"] = tls_settings.get("shortIds")[0]
                     except (IndexError, TypeError):
