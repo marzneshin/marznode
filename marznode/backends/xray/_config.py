@@ -243,27 +243,6 @@ class XrayConfig(dict):
             except KeyError:
                 self.inbounds_by_protocol[inbound["protocol"]] = [settings]
 
-    def add_inbound_client(self, inbound_tag: str, email: str, settings: dict):
-        inbound = self.inbounds_by_tag.get(inbound_tag, {})
-        client = {"email": email, **settings}
-
-        # XTLS currently only supports transmission methods of TCP and mKCP
-        if client.get("flow") and (
-            inbound.get("network", "tcp") not in ("tcp", "kcp")
-            or (
-                inbound.get("network", "tcp") in ("tcp", "kcp")
-                and inbound.get("tls") not in ("tls", "reality")
-            )
-            or inbound.get("header_type") == "http"
-        ):
-            del client["flow"]
-
-        try:
-            self._addr_clients_by_tag[inbound_tag].append(client)
-        except KeyError:
-            return
-        return client
-
     def get_inbound(self, tag) -> dict:
         for inbound in self["inbounds"]:
             if inbound["tag"] == tag:
