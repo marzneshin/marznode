@@ -5,10 +5,10 @@ Right now it only supports Xray but that is subject to change
 
 import json
 import logging
-from collections import defaultdict
 
 from grpclib.server import Stream
 
+from marznode.backends.base import VPNBackend
 from marznode.storage import BaseStorage
 from .service_grpc import MarzServiceBase
 from .service_pb2 import (
@@ -22,7 +22,6 @@ from .service_pb2 import (
 )
 from .service_pb2 import XrayConfig as XrayConfig_pb2
 from .. import config
-from marznode.backends.base import VPNBackend
 from ..models import User, Inbound as InboundModel
 
 logger = logging.getLogger(__name__)
@@ -50,7 +49,9 @@ class MarzService(MarzServiceBase):
     async def _remove_user(self, user: User, inbounds: list[InboundModel]):
         for inbound in inbounds:
             backend = self._resolve_tag(inbound.tag)
-            logger.debug("removing user `%s` from inbound `%s`", user.username, inbound.tag)
+            logger.debug(
+                "removing user `%s` from inbound `%s`", user.username, inbound.tag
+            )
             await backend.remove_user(user, inbound)
 
     async def _update_user(self, user_data: UserData):
@@ -131,7 +132,7 @@ class MarzService(MarzServiceBase):
 
     async def FetchXrayConfig(self, stream: Stream[Empty, XrayConfig_pb2]) -> None:
         await stream.recv_message()
-        with open(config.XRAY_CONFIG_PATH, "r") as f:
+        with open(config.XRAY_CONFIG_PATH) as f:
             content = f.read()
         await stream.send_message(XrayConfig_pb2(configuration=content))
 
@@ -142,6 +143,7 @@ class MarzService(MarzServiceBase):
 
         await self._storage.flush_users()
         inbounds = await self._backends[0].restart(message.configuration)
+        logger.debug(inbounds)
         if inbounds:
             self._storage.set_inbounds(inbounds)
         pb2_inbounds = [

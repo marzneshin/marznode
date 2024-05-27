@@ -46,13 +46,14 @@ class XrayBackend(VPNBackend):
         if not backend_config:
             return await self._runner.restart(self._config)
         api_port = find_free_port()
-        xray_config = XrayConfig(backend_config, api_port=api_port)
+        self._config = XrayConfig(backend_config, api_port=api_port)
         xray_inbounds = [
             Inbound(tag=i["tag"], protocol=i["protocol"], config=i)
             for i in self._config.inbounds_by_tag.values()
         ]
-        await self._runner.restart(xray_config)
+        await self._runner.restart(self._config)
         self._api = XrayAPI("127.0.0.1", api_port)
+        self._inbound_tags = {i.tag for i in xray_inbounds}
         await asyncio.sleep(0.1)  # wait until xray api is up,
         # I'd rather check if the port is open manually but this is lazier. for now.
         return xray_inbounds
