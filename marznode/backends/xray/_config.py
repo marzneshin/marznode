@@ -18,7 +18,7 @@ class XrayConfig(dict):
             config = commentjson.loads(config)
         except (json.JSONDecodeError, ValueError):
             # considering string as file path
-            with open(config, "r") as file:
+            with open(config) as file:
                 config = commentjson.loads(file.read())
 
         self.api_host = api_host
@@ -37,13 +37,6 @@ class XrayConfig(dict):
         self._apply_api()
 
     def _apply_api(self):
-        api_inbound = self.get_inbound("API_INBOUND")
-        if api_inbound:
-            api_inbound["listen"] = self.api_host
-            api_inbound["listen"]["address"] = self.api_host
-            api_inbound["port"] = self.api_port
-            return
-
         self["api"] = {
             "services": ["HandlerService", "StatsService", "LoggerService"],
             "tag": "API",
@@ -65,18 +58,15 @@ class XrayConfig(dict):
             "settings": {"address": self.api_host},
             "tag": "API_INBOUND",
         }
-        try:
-            self["inbounds"].insert(0, inbound)
-        except KeyError:
+        if "inbounds" not in self:
             self["inbounds"] = []
-            self["inbounds"].insert(0, inbound)
+        self["inbounds"].insert(0, inbound)
 
         rule = {"inboundTag": ["API_INBOUND"], "outboundTag": "API", "type": "field"}
-        try:
-            self["routing"]["rules"].insert(0, rule)
-        except KeyError:
+
+        if "routing" not in self:
             self["routing"] = {"rules": []}
-            self["routing"]["rules"].insert(0, rule)
+        self["routing"]["rules"].insert(0, rule)
 
     def _validate(self):
         if not self.get("inbounds"):
@@ -111,30 +101,17 @@ class XrayConfig(dict):
             settings = {
                 "tag": inbound["tag"],
                 "protocol": inbound["protocol"],
-                "port": None,
+                "port": inbound.get("port"),
                 "network": "tcp",
                 "tls": "none",
                 "sni": [],
                 "host": [],
-                "path": "",
-                "header_type": "",
+                "path": None,
+                "header_type": None,
                 "is_fallback": False,
             }
 
-            # port settings
-            try:
-                settings["port"] = inbound["port"]
-            except KeyError:
-                if not self._fallbacks_inbound:
-                    raise ValueError(
-                        f"port missing on {inbound['tag']}"
-                        "\nset XRAY_FALLBACKS_INBOUND_TAG if you're using an inbound containing fallbacks"
-                    )
-                try:
-                    settings["port"] = self._fallbacks_inbound["port"]
-                    settings["is_fallback"] = True
-                except KeyError:
-                    raise ValueError("fallbacks inbound doesn't have port")
+            # port settings, TODO: fix port and stream settings for fallbacks
 
             # stream settings
             if stream := inbound.get("streamSettings"):
@@ -142,13 +119,6 @@ class XrayConfig(dict):
                 net_settings = stream.get(f"{net}Settings", {})
                 security = stream.get("security")
                 tls_settings = stream.get(f"{security}Settings")
-
-                """if settings['is_fallback'] is True:
-                    # probably this is a fallback
-                    security = self._fallbacks_inbound.get(
-                        'streamSettings', {}).get('security')
-                    tls_settings = self._fallbacks_inbound.get(
-                        'streamSettings', {}).get(f"{security}Settings", {})"""
 
                 settings["network"] = net
 
@@ -190,13 +160,7 @@ class XrayConfig(dict):
                     path = request.get("path")
                     host = request.get("headers", {}).get("Host")
 
-                    settings["header_type"] = header.get("type", "")
-
-                    if isinstance(path, str) or isinstance(host, str):
-                        raise ValueError(
-                            f"Settings of {inbound['tag']} for path and host must be list, not str\n"
-                            "https://xtls.github.io/config/transports/tcp.html#httpheaderobject"
-                        )
+                    settings["header_type"] = header.get("type")
 
                     if path and isinstance(path, list):
                         settings["path"] = path[0]
@@ -204,36 +168,25 @@ class XrayConfig(dict):
                     if host and isinstance(host, list):
                         settings["host"] = host
 
-                elif net == "ws":
-                    path = net_settings.get("path", "")
-                    host = net_settings.get("headers", {}).get("Host")
-
-                    settings["header_type"] = ""
-
-                    if isinstance(path, list) or isinstance(host, list):
-                        raise ValueError(
-                            f"Settings of {inbound['tag']} for path and host must be str, not list\n"
-                            "https://xtls.github.io/config/transports/websocket.html#websocketobject"
-                        )
-
-                    if isinstance(path, str):
-                        settings["path"] = path
-
-                    if isinstance(host, str):
-                        settings["host"] = [host]
+                elif net in ["ws", "httpupgrade"]:
+                    settings["path"] = net_settings.get("path")
+                    settings["host"] = net_settings.get("host")
 
                 elif net == "grpc":
-                    settings["header_type"] = ""
-                    settings["path"] = net_settings.get("serviceName", "")
-                    settings["host"] = []
+                    settings["path"] = net_settings.get("serviceName")
 
-                else:
-                    settings["path"] = net_settings.get("path", "")
-                    host = net_settings.get("host", {}) or net_settings.get("Host", {})
-                    if host and isinstance(host, list):
-                        settings["host"] = host[0]
-                    elif host and isinstance(host, str):
-                        settings["host"] = host
+                elif net == "kcp":
+                    settings["path"] = net_settings.get("seed")
+                    settings["header_type"] = net_settings.get("header", {}).get("type")
+
+                elif net == "quic":
+                    settings["host"] = net_settings.get("security")
+                    settings["path"] = net_settings.get("key")
+                    settings["header_type"] = net_settings.get("header", {}).get("type")
+
+                elif net == "http":
+                    settings["path"] = net_settings.get("path")
+                    settings["host"] = net_settings.get("host")
 
             self.inbounds.append(settings)
             self.inbounds_by_tag[inbound["tag"]] = settings
