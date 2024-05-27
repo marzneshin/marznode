@@ -10,6 +10,7 @@ if typing.TYPE_CHECKING:
     import grpclib.server
 
 import marznode.backends.xray.api.proto.common.net.network_pb2
+import marznode.backends.xray.api.proto.common.serial.typed_message_pb2
 import marznode.backends.xray.api.proto.app.router.command.command_pb2
 
 
@@ -29,6 +30,14 @@ class RoutingServiceBase(abc.ABC):
 
     @abc.abstractmethod
     async def OverrideBalancerTarget(self, stream: 'grpclib.server.Stream[app.router.command.command_pb2.OverrideBalancerTargetRequest, app.router.command.command_pb2.OverrideBalancerTargetResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def AddRule(self, stream: 'grpclib.server.Stream[app.router.command.command_pb2.AddRuleRequest, app.router.command.command_pb2.AddRuleResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def RemoveRule(self, stream: 'grpclib.server.Stream[app.router.command.command_pb2.RemoveRuleRequest, app.router.command.command_pb2.RemoveRuleResponse]') -> None:
         pass
 
     def __mapping__(self) -> typing.Dict[str, grpclib.const.Handler]:
@@ -56,6 +65,18 @@ class RoutingServiceBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 marznode.backends.xray.api.proto.app.router.command.command_pb2.OverrideBalancerTargetRequest,
                 marznode.backends.xray.api.proto.app.router.command.command_pb2.OverrideBalancerTargetResponse,
+            ),
+            '/xray.app.router.command.RoutingService/AddRule': grpclib.const.Handler(
+                self.AddRule,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                marznode.backends.xray.api.proto.app.router.command.command_pb2.AddRuleRequest,
+                marznode.backends.xray.api.proto.app.router.command.command_pb2.AddRuleResponse,
+            ),
+            '/xray.app.router.command.RoutingService/RemoveRule': grpclib.const.Handler(
+                self.RemoveRule,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                marznode.backends.xray.api.proto.app.router.command.command_pb2.RemoveRuleRequest,
+                marznode.backends.xray.api.proto.app.router.command.command_pb2.RemoveRuleResponse,
             ),
         }
 
@@ -86,4 +107,16 @@ class RoutingServiceStub:
             '/xray.app.router.command.RoutingService/OverrideBalancerTarget',
             marznode.backends.xray.api.proto.app.router.command.command_pb2.OverrideBalancerTargetRequest,
             marznode.backends.xray.api.proto.app.router.command.command_pb2.OverrideBalancerTargetResponse,
+        )
+        self.AddRule = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/xray.app.router.command.RoutingService/AddRule',
+            marznode.backends.xray.api.proto.app.router.command.command_pb2.AddRuleRequest,
+            marznode.backends.xray.api.proto.app.router.command.command_pb2.AddRuleResponse,
+        )
+        self.RemoveRule = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/xray.app.router.command.RoutingService/RemoveRule',
+            marznode.backends.xray.api.proto.app.router.command.command_pb2.RemoveRuleRequest,
+            marznode.backends.xray.api.proto.app.router.command.command_pb2.RemoveRuleResponse,
         )
