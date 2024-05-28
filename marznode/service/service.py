@@ -151,4 +151,4 @@ class MarzService(MarzServiceBase):
         ]
         await stream.send_message(InboundsResponse(inbounds=pb2_inbounds))
         with open(config.XRAY_CONFIG_PATH, "w") as f:
-            f.write(message.configuration)
+            f.write(json.dumps(json.loads(message.configuration), indent=2))
