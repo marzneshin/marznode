@@ -62,7 +62,13 @@ class XrayBackend(VPNBackend):
         email = f"{user.id}.{user.username}"
 
         account_class = accounts_map[inbound.protocol]
-        user_account = account_class(email=email, seed=user.key)
+        flow = inbound.config["flow"] or ""
+        logger.debug(flow)
+        user_account = account_class(
+            email=email,
+            seed=user.key,
+            flow=flow,
+        )
 
         try:
             await self._api.add_inbound_user(inbound.tag, user_account)

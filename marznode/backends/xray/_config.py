@@ -2,7 +2,7 @@ import json
 
 import commentjson
 
-from marznode.config import XRAY_EXECUTABLE_PATH
+from marznode.config import XRAY_EXECUTABLE_PATH, XRAY_VLESS_REALITY_FLOW
 from ._utils import get_x25519
 
 
@@ -97,6 +97,7 @@ class XrayConfig(dict):
                 "host": [],
                 "path": None,
                 "header_type": None,
+                "flow": None,
                 "is_fallback": False,
             }
 
@@ -117,6 +118,8 @@ class XrayConfig(dict):
                     settings["fp"] = "chrome"
                     settings["tls"] = "reality"
                     settings["sni"] = tls_settings.get("serverNames", [])
+                    if inbound["protocol"] == "vless":
+                        settings["flow"] = XRAY_VLESS_REALITY_FLOW
 
                     try:
                         settings["pbk"] = tls_settings["publicKey"]

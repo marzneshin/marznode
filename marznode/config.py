@@ -12,6 +12,7 @@ INSECURE = config("INSECURE", cast=bool, default=False)
 XRAY_EXECUTABLE_PATH = config("XRAY_EXECUTABLE_PATH", default="/usr/bin/xray")
 XRAY_ASSETS_PATH = config("XRAY_ASSETS_PATH", default="/usr/share/xray")
 XRAY_CONFIG_PATH = config("XRAY_CONFIG_PATH", default="/etc/xray/config.json")
+XRAY_VLESS_REALITY_FLOW = config("XRAY_VLESS_REALITY_FLOW", default="xtls-rprx-vision")
 
 SSL_CERT_FILE = config("SSL_CERT_FILE", default="./ssl_cert.pem")
 SSL_KEY_FILE = config("SSL_KEY_FILE", default="./ssl_key.pem")
