@@ -6,6 +6,8 @@ WORKDIR /app
 
 COPY . .
 
+RUN mkdir /etc/init.d/
+
 RUN apk add --no-cache curl unzip
 
 RUN curl -L https://raw.githubusercontent.com/XTLS/alpinelinux-install-xray/main/install-release.sh | ash
