@@ -153,7 +153,7 @@ class XrayConfig(dict):
                     if host and isinstance(host, list):
                         settings["host"] = host
 
-                elif net in ["ws", "httpupgrade"]:
+                elif net in ["ws", "httpupgrade", "splithttp"]:
                     settings["path"] = net_settings.get("path")
                     settings["host"] = net_settings.get("host")
 
