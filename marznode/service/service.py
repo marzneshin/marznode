@@ -70,11 +70,14 @@ class MarzService(MarzServiceBase):
             )
             return
         elif not user_data.inbounds and storage_user:
-            """remove in case we have th user but client has sent
+            """remove in case we have the user but client has sent
             us an empty list of inbounds"""
             await self._remove_user(storage_user, storage_user.inbounds)
             return await self._storage.remove_user(user)
-
+        elif not user_data.inbounds and not storage_user:
+            """we're asked to remove a user which we don't have, just pass."""
+            return
+        
         """otherwise synchronize the user with what 
         the client has sent us"""
         storage_tags = {i.tag for i in storage_user.inbounds}
