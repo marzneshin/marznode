@@ -9,11 +9,11 @@ from grpclib.server import Server
 from grpclib.utils import graceful_exit
 
 from marznode import config
+from marznode.backends.hysteria2.interface import HysteriaBackend
 from marznode.backends.xray.interface import XrayBackend
 from marznode.service import MarzService
 from marznode.storage import MemoryStorage
 from marznode.utils.ssl import generate_keypair, create_secure_context
-
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,8 @@ async def main():
 
     storage = MemoryStorage()
     xray_backend = XrayBackend(storage)
+    hysteria_backend = HysteriaBackend("./hysteria.yaml")
+    await hysteria_backend.start()
     await xray_backend.start()
     backends = [xray_backend]
     server = Server([MarzService(storage, backends), Health()])

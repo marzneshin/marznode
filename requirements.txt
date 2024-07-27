@@ -8,3 +8,6 @@ python-decouple==3.8
 python-dotenv==1.0.1
 requests==2.31.0
 xxhash==3.4.1
+
+PyYAML~=6.0.1
+aiohttp~=3.9.5
