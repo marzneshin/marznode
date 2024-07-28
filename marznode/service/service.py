@@ -123,11 +123,12 @@ class MarzService(MarzServiceBase):
     async def FetchUsersStats(self, stream: Stream[Empty, UsersStats]) -> None:
         await stream.recv_message()
         all_stats = defaultdict(int)
-        xray_stats = await self._backends[0].get_usages()
-        hysteria_stats = await self._backends[1].get_usages()
 
-        for user, usage in list(xray_stats.items()) + list(hysteria_stats.items()):
-            all_stats[user] += usage
+        for backend in self._backends:
+            stats = await backend.get_usages()
+
+            for user, usage in stats.items():
+                all_stats[user] += usage
 
         logger.debug(all_stats)
         user_stats = [
@@ -155,8 +156,6 @@ class MarzService(MarzServiceBase):
         await self._storage.flush_users()
         inbounds = await self._backends[0].restart(message.configuration)
         logger.debug(inbounds)
-        pb2_inbounds = []
-        """Inbound(tag=i.tag, config=json.dumps(i.config)) for i in inbounds"""
-        await stream.send_message(InboundsResponse(inbounds=pb2_inbounds))
+        await stream.send_message(InboundsResponse(inbounds=[]))
         with open(config.XRAY_CONFIG_PATH, "w") as f:
             f.write(json.dumps(json.loads(message.configuration), indent=2))
