@@ -11,6 +11,11 @@ from grpclib.utils import graceful_exit
 from marznode import config
 from marznode.backends.hysteria2.interface import HysteriaBackend
 from marznode.backends.xray.interface import XrayBackend
+from marznode.config import (
+    HYSTERIA_CONFIG_PATH,
+    HYSTERIA_EXECUTABLE_PATH,
+    XRAY_CONFIG_PATH,
+)
 from marznode.service import MarzService
 from marznode.storage import MemoryStorage
 from marznode.utils.ssl import generate_keypair, create_secure_context
@@ -40,10 +45,10 @@ async def main():
 
     storage = MemoryStorage()
     xray_backend = XrayBackend(storage)
-    hysteria_backend = HysteriaBackend("./hysteria.yaml")
-    await hysteria_backend.start()
-    await xray_backend.start()
-    backends = [xray_backend]
+    hysteria_backend = HysteriaBackend(HYSTERIA_EXECUTABLE_PATH, storage)
+    await hysteria_backend.start(HYSTERIA_CONFIG_PATH)
+    await xray_backend.start(XRAY_CONFIG_PATH)
+    backends = [xray_backend, hysteria_backend]
     server = Server([MarzService(storage, backends), Health()])
 
     with graceful_exit([server]):

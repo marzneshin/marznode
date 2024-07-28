@@ -4,6 +4,8 @@ import commentjson
 
 from marznode.config import XRAY_EXECUTABLE_PATH, XRAY_VLESS_REALITY_FLOW
 from ._utils import get_x25519
+from ...models import Inbound
+from ...storage import BaseStorage
 
 
 class XrayConfig(dict):
@@ -190,6 +192,14 @@ class XrayConfig(dict):
         for outbound in self["outbounds"]:
             if outbound["tag"] == tag:
                 return outbound
+
+    def register_inbounds(self, storage: BaseStorage):
+        inbounds = [
+            Inbound(tag=i["tag"], protocol=i["protocol"], config=i)
+            for i in self.inbounds_by_tag.values()
+        ]
+        for inbound in inbounds:
+            storage.register_inbound(inbound)
 
     def to_json(self, **json_kwargs):
         return json.dumps(self, **json_kwargs)

@@ -52,9 +52,16 @@ class BaseStorage(ABC):
         """
 
     @abstractmethod
-    def set_inbounds(self, inbounds: list[Inbound]) -> None:
+    def register_inbound(self, inbound: Inbound) -> None:
         """
-        resets all inbounds
-        :param inbounds: inbounds
+        registers a new inbound
+        :param inbound: the inbound to register
+        :return: nothing
+        """
+
+    def remove_inbound(self, inbound: Inbound | str) -> None:
+        """
+        removes an inbound
+        :param inbound: the inbound to remove
         :return: nothing
         """

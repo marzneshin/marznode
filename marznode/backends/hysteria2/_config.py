@@ -1,5 +1,8 @@
 import yaml
 
+from marznode.models import Inbound
+from marznode.storage import BaseStorage
+
 
 class HysteriaConfig:
     def __init__(
@@ -19,6 +22,14 @@ class HysteriaConfig:
             "secret": stats_secret,
         }
         self._config = loaded_config
+
+        self._inbound = {"tag": "hysteria2", "protocol": "hysteria2", "port": 443}
+
+    def register_inbounds(self, storage: BaseStorage):
+        inbound = self._inbound
+        storage.register_inbound(
+            Inbound(tag=inbound["tag"], protocol=inbound["protocol"], config=inbound)
+        )
 
     def render(self):
         return self._config
