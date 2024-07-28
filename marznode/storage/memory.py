@@ -47,7 +47,7 @@ class MemoryStorage(BaseStorage):
     def remove_inbound(self, inbound: Inbound | str) -> None:
         tag = inbound if isinstance(inbound, str) else inbound.tag
         if tag in self.storage["inbounds"]:
-            self.storage.pop(tag)
+            self.storage["inbounds"].pop(tag)
 
     async def flush_users(self):
         self.storage["users"] = {}

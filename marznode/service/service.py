@@ -155,11 +155,8 @@ class MarzService(MarzServiceBase):
         await self._storage.flush_users()
         inbounds = await self._backends[0].restart(message.configuration)
         logger.debug(inbounds)
-        if inbounds:
-            self._storage.register_inbound(inbounds)
-        pb2_inbounds = [
-            Inbound(tag=i.tag, config=json.dumps(i.config)) for i in inbounds
-        ]
+        pb2_inbounds = []
+        """Inbound(tag=i.tag, config=json.dumps(i.config)) for i in inbounds"""
         await stream.send_message(InboundsResponse(inbounds=pb2_inbounds))
         with open(config.XRAY_CONFIG_PATH, "w") as f:
             f.write(json.dumps(json.loads(message.configuration), indent=2))
