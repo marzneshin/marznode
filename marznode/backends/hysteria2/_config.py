@@ -23,7 +23,24 @@ class HysteriaConfig:
         }
         self._config = loaded_config
 
-        self._inbound = {"tag": "hysteria2", "protocol": "hysteria2", "port": 443}
+        port = 443
+        if "listen" in loaded_config:
+            try:
+                port = int(loaded_config.get("listen").split(":")[-1])
+            except ValueError:
+                pass
+        obfs_type, obfs_password = None, None
+
+        if "obfs" in loaded_config:
+            try:
+                obfs_type = loaded_config["obfs"]["type"]
+                obfs_password = loaded_config["obfs"][obfs_type]["password"]
+            except:
+                pass
+
+        self._inbound = {"tag": "hysteria2", "protocol": "hysteria2", "port": port}
+        if obfs_type and obfs_password:
+            self._inbound.update({"path": obfs_password, "header_type": obfs_type})
 
     def register_inbounds(self, storage: BaseStorage):
         inbound = self._inbound
