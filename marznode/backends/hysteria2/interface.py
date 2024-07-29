@@ -11,6 +11,7 @@ from marznode.backends.hysteria2._config import HysteriaConfig
 from marznode.backends.hysteria2._runner import Hysteria
 from marznode.models import User, Inbound
 from marznode.storage import BaseStorage
+from marznode.utils.key_gen import generate_password
 from marznode.utils.network import find_free_port
 
 logger = logging.getLogger(__name__)
@@ -57,10 +58,12 @@ class HysteriaBackend(VPNBackend):
         self._runner.stop()
 
     async def restart(self, backend_config: Any) -> None:
-        pass
+        await self.stop()
+        await self.start(backend_config)
 
     async def add_user(self, user: User, inbound: Inbound) -> None:
-        self._users.update({user.key: user})
+        password = generate_password(user.key)
+        self._users.update({password: user})
 
     async def remove_user(self, user: User, inbound: Inbound) -> None:
         self._users.pop(user.key)
