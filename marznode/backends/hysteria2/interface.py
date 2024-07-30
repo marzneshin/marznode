@@ -24,7 +24,7 @@ class HysteriaBackend(VPNBackend):
         self._inbounds = ["hysteria2"]
         self._users = {}
         self._auth_site = None
-        self._runner = None
+        self._runner = Hysteria(self._executable_path)
         self._stats_secret = None
         self._stats_port = None
 
@@ -49,7 +49,6 @@ class HysteriaBackend(VPNBackend):
             config = f.read()
         cfg = HysteriaConfig(config, api_port, self._stats_port, self._stats_secret)
         cfg.register_inbounds(self._storage)
-        self._runner = Hysteria(self._executable_path)
         await self._runner.start(cfg.render())
 
     async def stop(self):
@@ -75,8 +74,15 @@ class HysteriaBackend(VPNBackend):
             async with session.post(url, data=payload, headers=headers):
                 pass
 
-    def get_logs(self, include_buffer: bool) -> AsyncIterator:
-        pass
+    async def get_logs(self, include_buffer: bool) -> AsyncIterator:
+        if include_buffer:
+            buffer = self._runner.get_buffer()
+            for line in buffer:
+                yield line
+        log_stm = self._runner.get_logs_stm()
+        async with log_stm:
+            async for line in log_stm:
+                yield line
 
     async def get_usages(self):
         url = "http://127.0.0.1:" + str(self._stats_port) + "/traffic?clear=1"
