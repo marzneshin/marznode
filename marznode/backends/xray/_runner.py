@@ -21,10 +21,10 @@ class XrayCore:
         self.assets_path = assets_path
 
         self.version = get_version(executable_path)
-        self.process = None
+        self._process = None
         self.restarting = False
 
-        self._snd_streams, self._rcv_streams = [], []
+        self._snd_streams = []
         self._logs_buffer = deque(maxlen=100)
         self._env = {"XRAY_LOCATION_ASSET": assets_path}
 
@@ -38,17 +38,17 @@ class XrayCore:
             config["log"]["logLevel"] = "warning"
 
         cmd = [self.executable_path, "run", "-config", "stdin:"]
-        self.process = await asyncio.create_subprocess_shell(
+        self._process = await asyncio.create_subprocess_shell(
             " ".join(cmd),
             env=self._env,
             stdin=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
         )
-        self.process.stdin.write(str.encode(config.to_json()))
-        await self.process.stdin.drain()
-        self.process.stdin.close()
-        await self.process.stdin.wait_closed()
+        self._process.stdin.write(str.encode(config.to_json()))
+        await self._process.stdin.drain()
+        self._process.stdin.close()
+        await self._process.stdin.wait_closed()
         logger.info("Xray core %s started", self.version)
 
         asyncio.create_task(self.__capture_process_logs())
@@ -58,8 +58,8 @@ class XrayCore:
         if not self.started:
             return
 
-        self.process.terminate()
-        self.process = None
+        self._process.terminate()
+        self._process = None
         logger.warning("Xray core stopped")
 
     async def restart(self, config: XrayConfig):
@@ -78,14 +78,24 @@ class XrayCore:
     async def __capture_process_logs(self):
         """capture the logs, push it into the stream, and store it in the deck
         note that the stream blocks sending if it's full, so a deck is necessary"""
-        while output := await self.process.stdout.readline():
-            for stm in self._snd_streams:
-                try:
-                    await stm.send(output)
-                except (ClosedResourceError, BrokenResourceError):
-                    self._snd_streams.remove(stm)
-                    continue
-            self._logs_buffer.append(output)
+
+        async def capture_stream(stream):
+            while True:
+                output = await stream.readline()
+                if output == b"":
+                    """break in case of eof"""
+                    return
+                for stm in self._snd_streams:
+                    try:
+                        await stm.send(output)
+                    except (ClosedResourceError, BrokenResourceError):
+                        self._snd_streams.remove(stm)
+                        continue
+                self._logs_buffer.append(output)
+
+        await asyncio.gather(
+            capture_stream(self._process.stderr), capture_stream(self._process.stdout)
+        )
 
     def get_logs_stm(self):
         new_snd_stm, new_rcv_stm = create_memory_object_stream()
@@ -96,9 +106,8 @@ class XrayCore:
         """makes a copy of the buffer, so it could be read multiple times
         the buffer is never cleared in case logs from xray's exit are useful"""
         return self._logs_buffer.copy()
+        # return [line for line in self._logs_buffer]
 
     @property
     def started(self):
-        if not self.process or self.process.returncode is not None:
-            return False
-        return True
+        return self._process and self._process.returncode is None

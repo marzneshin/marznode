@@ -24,11 +24,10 @@ logger = logging.getLogger(__name__)
 
 class XrayBackend(VPNBackend):
     def __init__(self, storage: BaseStorage):
-        xray_api_port = find_free_port()
         self._config = None
         self._inbound_tags = set()
         self._api = None
-        self._runner = None
+        self._runner = XrayCore(config.XRAY_EXECUTABLE_PATH, config.XRAY_ASSETS_PATH)
         self._storage = storage
 
     def contains_tag(self, tag: str) -> bool:
@@ -40,7 +39,6 @@ class XrayBackend(VPNBackend):
         self._config.register_inbounds(self._storage)
         self._inbound_tags = {i["tag"] for i in self._config.inbounds}
         self._api = XrayAPI("127.0.0.1", xray_api_port)
-        self._runner = XrayCore(config.XRAY_EXECUTABLE_PATH, config.XRAY_ASSETS_PATH)
         await self._runner.start(self._config)
         await asyncio.sleep(0.15)
 
