@@ -38,7 +38,12 @@ class HysteriaConfig:
             except:
                 pass
 
-        self._inbound = {"tag": "hysteria2", "protocol": "hysteria2", "port": port}
+        self._inbound = {
+            "tag": "hysteria2",
+            "protocol": "hysteria2",
+            "port": port,
+            "tls": "tls",
+        }
         if obfs_type and obfs_password:
             self._inbound.update({"path": obfs_password, "header_type": obfs_type})
 
