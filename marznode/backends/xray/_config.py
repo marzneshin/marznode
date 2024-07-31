@@ -183,23 +183,15 @@ class XrayConfig(dict):
             except KeyError:
                 self.inbounds_by_protocol[inbound["protocol"]] = [settings]
 
-    def get_inbound(self, tag) -> dict:
-        for inbound in self["inbounds"]:
-            if inbound["tag"] == tag:
-                return inbound
-
-    def get_outbound(self, tag) -> dict:
-        for outbound in self["outbounds"]:
-            if outbound["tag"] == tag:
-                return outbound
-
     def register_inbounds(self, storage: BaseStorage):
-        inbounds = [
+        for inbound in self.list_inbounds():
+            storage.register_inbound(inbound)
+
+    def list_inbounds(self) -> list[Inbound]:
+        return [
             Inbound(tag=i["tag"], protocol=i["protocol"], config=i)
             for i in self.inbounds_by_tag.values()
         ]
-        for inbound in inbounds:
-            storage.register_inbound(inbound)
 
     def to_json(self, **json_kwargs):
         return json.dumps(self, **json_kwargs)

@@ -23,9 +23,12 @@ logger = logging.getLogger(__name__)
 
 
 class XrayBackend(VPNBackend):
+    backend_type = "xray"
+
     def __init__(self, storage: BaseStorage):
         self._config = None
         self._inbound_tags = set()
+        self._inbounds = set()
         self._api = None
         self._runner = XrayCore(config.XRAY_EXECUTABLE_PATH, config.XRAY_ASSETS_PATH)
         self._storage = storage
@@ -33,11 +36,15 @@ class XrayBackend(VPNBackend):
     def contains_tag(self, tag: str) -> bool:
         return tag in self._inbound_tags
 
+    def list_inbounds(self) -> set:
+        return self._inbounds
+
     async def start(self, backend_config: str):
         xray_api_port = find_free_port()
         self._config = XrayConfig(backend_config, api_port=xray_api_port)
         self._config.register_inbounds(self._storage)
         self._inbound_tags = {i["tag"] for i in self._config.inbounds}
+        self._inbounds = set(self._config.list_inbounds())
         self._api = XrayAPI("127.0.0.1", xray_api_port)
         await self._runner.start(self._config)
         await asyncio.sleep(0.15)
@@ -47,6 +54,7 @@ class XrayBackend(VPNBackend):
         for tag in self._inbound_tags:
             self._storage.remove_inbound(tag)
         self._inbound_tags = set()
+        self._inbounds = set()
 
     async def restart(self, backend_config: str | None) -> list[Inbound] | None:
         # xray_config = backend_config if backend_config else self._config

@@ -13,15 +13,21 @@ from marznode.backends.base import VPNBackend
 from marznode.storage import BaseStorage
 from .service_grpc import MarzServiceBase
 from .service_pb2 import (
+    BackendConfig as BackendConfig_pb2,
+    Backend,
+    BackendLogsRequest,
+    RestartBackendRequest,
+    ConfigFormat,
+)
+from .service_pb2 import (
     UserData,
     UsersData,
     Empty,
-    InboundsResponse,
+    BackendsResponse,
     Inbound,
     UsersStats,
     LogLine,
 )
-from .service_pb2 import XrayConfig as XrayConfig_pb2
 from .. import config
 from ..models import User, Inbound as InboundModel
 
@@ -31,12 +37,12 @@ logger = logging.getLogger(__name__)
 class MarzService(MarzServiceBase):
     """Add/Update/Delete users based on calls from the client"""
 
-    def __init__(self, storage: BaseStorage, backends: list[VPNBackend]):
+    def __init__(self, storage: BaseStorage, backends: dict[str, VPNBackend]):
         self._backends = backends
         self._storage = storage
 
     def _resolve_tag(self, inbound_tag: str) -> VPNBackend:
-        for backend in self._backends:
+        for backend in self._backends.values():
             if backend.contains_tag(inbound_tag):
                 return backend
         raise
@@ -92,20 +98,27 @@ class MarzService(MarzServiceBase):
         await self._add_user(storage_user, added_inbounds)
         await self._storage.update_user_inbounds(storage_user, new_inbounds)
 
-    async def SyncUsers(self, stream: "Stream[UserData," "Empty]") -> None:
+    async def SyncUsers(self, stream: Stream[UserData, Empty]) -> None:
         async for user_data in stream:
             await self._update_user(user_data)
 
-    async def FetchInbounds(
+    async def FetchBackends(
         self,
-        stream: Stream[Empty, InboundsResponse],
+        stream: Stream[Empty, BackendsResponse],
     ) -> None:
         await stream.recv_message()
-        stored_inbounds = await self._storage.list_inbounds()
-        inbounds = [
-            Inbound(tag=i.tag, config=json.dumps(i.config)) for i in stored_inbounds
+        backends = [
+            Backend(
+                name=name,
+                type=backend.backend_type,
+                inbounds=[
+                    Inbound(tag=i.tag, config=json.dumps(i.config))
+                    for i in backend.list_inbounds()
+                ],
+            )
+            for name, backend in self._backends.items()
         ]
-        await stream.send_message(InboundsResponse(inbounds=inbounds))
+        await stream.send_message(BackendsResponse(backends=backends))
 
     async def RepopulateUsers(
         self,
@@ -124,7 +137,7 @@ class MarzService(MarzServiceBase):
         await stream.recv_message()
         all_stats = defaultdict(int)
 
-        for backend in self._backends:
+        for backend in self._backends.values():
             stats = await backend.get_usages()
 
             for user, usage in stats.items():
@@ -137,25 +150,33 @@ class MarzService(MarzServiceBase):
         ]
         await stream.send_message(UsersStats(users_stats=user_stats))
 
-    async def StreamXrayLogs(self, stream: Stream[Empty, LogLine]) -> None:
+    async def StreamBackendLogs(
+        self, stream: Stream[BackendLogsRequest, LogLine]
+    ) -> None:
         req = await stream.recv_message()
-        async for line in self._backends[0].get_logs(req.include_buffer):
+        if req.backend_name not in self._backends:
+            raise
+        async for line in self._backends[req.backend_name].get_logs(req.include_buffer):
             await stream.send_message(LogLine(line=line))
 
-    async def FetchXrayConfig(self, stream: Stream[Empty, XrayConfig_pb2]) -> None:
+    async def FetchBackendConfig(
+        self, stream: Stream[Empty, BackendConfig_pb2]
+    ) -> None:
         await stream.recv_message()
         with open(config.XRAY_CONFIG_PATH) as f:
             content = f.read()
-        await stream.send_message(XrayConfig_pb2(configuration=content))
+        await stream.send_message(
+            BackendConfig_pb2(configuration=content, config_format=ConfigFormat.JSON)
+        )
 
-    async def RestartXray(
-        self, stream: Stream[XrayConfig_pb2, InboundsResponse]
+    async def RestartBackend(
+        self, stream: Stream[RestartBackendRequest, Empty]
     ) -> None:
         message = await stream.recv_message()
 
         await self._storage.flush_users()
-        inbounds = await self._backends[0].restart(message.configuration)
+        inbounds = await self._backends[message.backend_name].restart(message.config)
         logger.debug(inbounds)
-        await stream.send_message(InboundsResponse(inbounds=[]))
+        await stream.send_message(Empty())
         with open(config.XRAY_CONFIG_PATH, "w") as f:
-            f.write(json.dumps(json.loads(message.configuration), indent=2))
+            f.write(json.dumps(json.loads(message.config.configuration), indent=2))

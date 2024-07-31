@@ -18,10 +18,13 @@ logger = logging.getLogger(__name__)
 
 
 class HysteriaBackend(VPNBackend):
+    backend_type = "hysteria2"
+
     def __init__(self, executable_path: str, storage: BaseStorage):
         self._executable_path = executable_path
         self._storage = storage
-        self._inbounds = ["hysteria2"]
+        self._inbound_tags = ["hysteria2"]
+        self._inbounds = set()
         self._users = {}
         self._auth_site = None
         self._runner = Hysteria(self._executable_path)
@@ -30,6 +33,9 @@ class HysteriaBackend(VPNBackend):
 
     def contains_tag(self, tag: str) -> bool:
         return bool(tag == "hysteria2")
+
+    def list_inbounds(self) -> set:
+        return self._inbounds
 
     async def start(self, config_path: str) -> None:
         api_port = find_free_port()
@@ -49,6 +55,7 @@ class HysteriaBackend(VPNBackend):
             config = f.read()
         cfg = HysteriaConfig(config, api_port, self._stats_port, self._stats_secret)
         cfg.register_inbounds(self._storage)
+        self._inbounds = {cfg.get_inbound()}
         await self._runner.start(cfg.render())
 
     async def stop(self):
