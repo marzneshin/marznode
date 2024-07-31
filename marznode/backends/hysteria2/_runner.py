@@ -1,79 +1,47 @@
-"""run xray and capture the logs"""
-
 import asyncio
 import atexit
 import logging
+import tempfile
 from collections import deque
 
-from anyio import create_memory_object_stream, ClosedResourceError, BrokenResourceError
-
-from ._config import XrayConfig
-from ._utils import get_version
+import yaml
+from anyio import BrokenResourceError, ClosedResourceError, create_memory_object_stream
 
 logger = logging.getLogger(__name__)
 
 
-class XrayCore:
-    """runs and captures xray logs"""
-
-    def __init__(self, executable_path: str, assets_path: str):
-        self.executable_path = executable_path
-        self.assets_path = assets_path
-
-        self.version = get_version(executable_path)
+class Hysteria:
+    def __init__(self, executable_path: str):
+        self._executable_path = executable_path
         self._process = None
-        self.restarting = False
-
         self._snd_streams = []
         self._logs_buffer = deque(maxlen=100)
-        self._env = {"XRAY_LOCATION_ASSET": assets_path}
-
+        self._capture_task = None
         atexit.register(lambda: self.stop() if self.started else None)
 
-    async def start(self, config: XrayConfig):
-        if self.started is True:
-            raise RuntimeError("Xray is started already")
+    async def start(self, config: dict):
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".yaml", delete=False
+        ) as temp_file:
+            yaml.dump(config, temp_file)
+        cmd = [self._executable_path, "server", "-c", temp_file.name]
 
-        if config.get("log", {}).get("logLevel") in ("none", "error"):
-            config["log"]["logLevel"] = "warning"
-
-        cmd = [self.executable_path, "run", "-config", "stdin:"]
         self._process = await asyncio.create_subprocess_shell(
             " ".join(cmd),
-            env=self._env,
             stdin=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
         )
-        self._process.stdin.write(str.encode(config.to_json()))
-        await self._process.stdin.drain()
-        self._process.stdin.close()
-        await self._process.stdin.wait_closed()
-        logger.info("Xray core %s started", self.version)
-
+        logger.info("Hysteria has started")
         asyncio.create_task(self.__capture_process_logs())
 
     def stop(self):
-        """stops xray if it is started"""
-        if not self.started:
-            return
+        if self.started:
+            self._process.terminate()
 
-        self._process.terminate()
-        self._process = None
-        logger.warning("Xray core stopped")
-
-    async def restart(self, config: XrayConfig):
-        """restart xray"""
-        if self.restarting is True:
-            return
-
-        try:
-            self.restarting = True
-            logger.warning("Restarting Xray core...")
-            self.stop()
-            await self.start(config)
-        finally:
-            self.restarting = False
+    @property
+    def started(self):
+        return self._process and self._process.returncode is None
 
     async def __capture_process_logs(self):
         """capture the logs, push it into the stream, and store it in the deck
@@ -106,8 +74,3 @@ class XrayCore:
         """makes a copy of the buffer, so it could be read multiple times
         the buffer is never cleared in case logs from xray's exit are useful"""
         return self._logs_buffer.copy()
-        # return [line for line in self._logs_buffer]
-
-    @property
-    def started(self):
-        return self._process and self._process.returncode is None

@@ -9,11 +9,18 @@ from grpclib.server import Server
 from grpclib.utils import graceful_exit
 
 from marznode import config
+from marznode.backends.hysteria2.interface import HysteriaBackend
 from marznode.backends.xray.interface import XrayBackend
+from marznode.config import (
+    HYSTERIA_EXECUTABLE_PATH,
+    HYSTERIA_CONFIG_PATH,
+    XRAY_CONFIG_PATH,
+    HYSTERIA_ENABLED,
+    XRAY_ENABLED,
+)
 from marznode.service import MarzService
 from marznode.storage import MemoryStorage
 from marznode.utils.ssl import generate_keypair, create_secure_context
-
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +33,7 @@ async def main():
         if not all(
             (os.path.isfile(config.SSL_CERT_FILE), os.path.isfile(config.SSL_KEY_FILE))
         ):
-            logger.info("Generating a keypair for Marz-node.")
+            logger.info("Generating a keypair for Marznode.")
             generate_keypair(config.SSL_KEY_FILE, config.SSL_CERT_FILE)
 
         if not os.path.isfile(config.SSL_CLIENT_CERT_FILE):
@@ -39,9 +46,16 @@ async def main():
         )
 
     storage = MemoryStorage()
-    xray_backend = XrayBackend(storage)
-    await xray_backend.start()
-    backends = [xray_backend]
+    backends = []
+    if XRAY_ENABLED:
+        xray_backend = XrayBackend(storage)
+        await xray_backend.start(XRAY_CONFIG_PATH)
+        backends.append(xray_backend)
+    if HYSTERIA_ENABLED:
+        hysteria_backend = HysteriaBackend(HYSTERIA_EXECUTABLE_PATH, storage)
+        await hysteria_backend.start(HYSTERIA_CONFIG_PATH)
+        backends.append(hysteria_backend)
+
     server = Server([MarzService(storage, backends), Health()])
 
     with graceful_exit([server]):

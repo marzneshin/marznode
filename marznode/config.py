@@ -9,10 +9,21 @@ SERVICE_ADDRESS = config("SERVICE_ADDRESS", default="0.0.0.0")
 SERVICE_PORT = config("SERVICE_PORT", cast=int, default=53042)
 INSECURE = config("INSECURE", cast=bool, default=False)
 
+XRAY_ENABLED = config("XRAY_ENABLED", cast=bool, default=True)
 XRAY_EXECUTABLE_PATH = config("XRAY_EXECUTABLE_PATH", default="/usr/bin/xray")
 XRAY_ASSETS_PATH = config("XRAY_ASSETS_PATH", default="/usr/share/xray")
 XRAY_CONFIG_PATH = config("XRAY_CONFIG_PATH", default="/etc/xray/config.json")
 XRAY_VLESS_REALITY_FLOW = config("XRAY_VLESS_REALITY_FLOW", default="xtls-rprx-vision")
+
+
+HYSTERIA_ENABLED = config("HYSTERIA_ENABLED", cast=bool, default=False)
+HYSTERIA_EXECUTABLE_PATH = config(
+    "HYSTERIA_EXECUTABLE_PATH", default="/usr/bin/hysteria"
+)
+HYSTERIA_CONFIG_PATH = config(
+    "HYSTERIA_CONFIG_PATH", default="/etc/hysteria/config.yaml"
+)
+
 
 SSL_CERT_FILE = config("SSL_CERT_FILE", default="./ssl_cert.pem")
 SSL_KEY_FILE = config("SSL_KEY_FILE", default="./ssl_key.pem")

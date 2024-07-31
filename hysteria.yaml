@@ -1,0 +1,16 @@
+listen: :4443
+
+tls:
+  cert: ./ssl_cert.pem
+  key: ./ssl_key.pem
+
+auth:
+  type: command
+  command: echo
+
+masquerade:
+  type: proxy
+  proxy:
+    url: https://news.ycombinator.com/
+    rewriteHost: true
+

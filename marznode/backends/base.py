@@ -13,7 +13,7 @@ class VPNBackend(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def start(self) -> None:
+    async def start(self, backend_config: Any) -> None:
         raise NotImplementedError
 
     @abstractmethod

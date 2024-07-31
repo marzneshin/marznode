@@ -41,8 +41,13 @@ class MemoryStorage(BaseStorage):
         user.inbounds = inbounds
         self.storage["users"][user.id] = user
 
-    def set_inbounds(self, inbounds: list[Inbound]) -> None:
-        self.storage["inbounds"] = {i.tag: i for i in inbounds}
+    def register_inbound(self, inbound: Inbound) -> None:
+        self.storage["inbounds"][inbound.tag] = inbound
+
+    def remove_inbound(self, inbound: Inbound | str) -> None:
+        tag = inbound if isinstance(inbound, str) else inbound.tag
+        if tag in self.storage["inbounds"]:
+            self.storage["inbounds"].pop(tag)
 
     async def flush_users(self):
         self.storage["users"] = {}

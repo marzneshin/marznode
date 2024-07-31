@@ -5,6 +5,7 @@ Right now it only supports Xray but that is subject to change
 
 import json
 import logging
+from collections import defaultdict
 
 from grpclib.server import Stream
 
@@ -77,7 +78,7 @@ class MarzService(MarzServiceBase):
         elif not user_data.inbounds and not storage_user:
             """we're asked to remove a user which we don't have, just pass."""
             return
-        
+
         """otherwise synchronize the user with what 
         the client has sent us"""
         storage_tags = {i.tag for i in storage_user.inbounds}
@@ -121,10 +122,18 @@ class MarzService(MarzServiceBase):
 
     async def FetchUsersStats(self, stream: Stream[Empty, UsersStats]) -> None:
         await stream.recv_message()
-        stats = await self._backends[0].get_usages()
-        logger.debug(stats)
+        all_stats = defaultdict(int)
+
+        for backend in self._backends:
+            stats = await backend.get_usages()
+
+            for user, usage in stats.items():
+                all_stats[user] += usage
+
+        logger.debug(all_stats)
         user_stats = [
-            UsersStats.UserStats(uid=uid, usage=usage) for uid, usage in stats.items()
+            UsersStats.UserStats(uid=uid, usage=usage)
+            for uid, usage in all_stats.items()
         ]
         await stream.send_message(UsersStats(users_stats=user_stats))
 
@@ -147,11 +156,6 @@ class MarzService(MarzServiceBase):
         await self._storage.flush_users()
         inbounds = await self._backends[0].restart(message.configuration)
         logger.debug(inbounds)
-        if inbounds:
-            self._storage.set_inbounds(inbounds)
-        pb2_inbounds = [
-            Inbound(tag=i.tag, config=json.dumps(i.config)) for i in inbounds
-        ]
-        await stream.send_message(InboundsResponse(inbounds=pb2_inbounds))
+        await stream.send_message(InboundsResponse(inbounds=[]))
         with open(config.XRAY_CONFIG_PATH, "w") as f:
             f.write(json.dumps(json.loads(message.configuration), indent=2))
