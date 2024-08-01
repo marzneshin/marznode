@@ -17,7 +17,6 @@ from .service_pb2 import (
     Backend,
     BackendLogsRequest,
     RestartBackendRequest,
-    ConfigFormat,
 )
 from .service_pb2 import (
     UserData,
@@ -28,7 +27,6 @@ from .service_pb2 import (
     UsersStats,
     LogLine,
 )
-from .. import config
 from ..models import User, Inbound as InboundModel
 
 logger = logging.getLogger(__name__)
@@ -160,13 +158,13 @@ class MarzService(MarzServiceBase):
             await stream.send_message(LogLine(line=line))
 
     async def FetchBackendConfig(
-        self, stream: Stream[Empty, BackendConfig_pb2]
+        self, stream: Stream[Backend, BackendConfig_pb2]
     ) -> None:
-        await stream.recv_message()
-        with open(config.XRAY_CONFIG_PATH) as f:
-            content = f.read()
+        req = await stream.recv_message()
+        backend = self._backends[req.name]
+        config = backend.get_config()
         await stream.send_message(
-            BackendConfig_pb2(configuration=content, config_format=ConfigFormat.JSON)
+            BackendConfig_pb2(configuration=config, config_format=backend.config_format)
         )
 
     async def RestartBackend(
@@ -178,5 +176,6 @@ class MarzService(MarzServiceBase):
         inbounds = await self._backends[message.backend_name].restart(message.config)
         logger.debug(inbounds)
         await stream.send_message(Empty())
-        with open(config.XRAY_CONFIG_PATH, "w") as f:
-            f.write(json.dumps(json.loads(message.config.configuration), indent=2))
+        self._backends[message.backend_name].save_config(
+            json.dumps(json.loads(message.config.configuration), indent=2)
+        )

@@ -5,14 +5,16 @@ package marznode;
 message Empty {}
 
 enum ConfigFormat {
-  JSON = 0;
-  YAML = 1;
+  PLAIN = 0;
+  JSON = 1;
+  YAML = 2;
 }
 
 message Backend {
   string name = 1;
   optional string type = 2;
-  repeated Inbound inbounds = 3;
+  optional string version = 3;
+  repeated Inbound inbounds = 4;
 }
 
 message BackendsResponse {

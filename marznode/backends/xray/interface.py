@@ -4,7 +4,6 @@ import asyncio
 import logging
 from collections import defaultdict
 
-from marznode import config
 from marznode.backends.base import VPNBackend
 from marznode.backends.xray._config import XrayConfig
 from marznode.backends.xray._runner import XrayCore
@@ -24,14 +23,22 @@ logger = logging.getLogger(__name__)
 
 class XrayBackend(VPNBackend):
     backend_type = "xray"
+    config_format = 1
 
-    def __init__(self, storage: BaseStorage):
+    def __init__(
+        self,
+        executable_path: str,
+        assets_path: str,
+        config_path: str,
+        storage: BaseStorage,
+    ):
         self._config = None
         self._inbound_tags = set()
         self._inbounds = list()
         self._api = None
-        self._runner = XrayCore(config.XRAY_EXECUTABLE_PATH, config.XRAY_ASSETS_PATH)
+        self._runner = XrayCore(executable_path, assets_path)
         self._storage = storage
+        self._config_path = config_path
 
     def contains_tag(self, tag: str) -> bool:
         return tag in self._inbound_tags
@@ -39,7 +46,18 @@ class XrayBackend(VPNBackend):
     def list_inbounds(self) -> list:
         return self._inbounds
 
-    async def start(self, backend_config: str):
+    def get_config(self) -> str:
+        with open(self._config_path) as f:
+            return f.read()
+
+    def save_config(self, config: str) -> None:
+        with open(self._config_path, "w") as f:
+            f.write(config)
+
+    async def start(self, backend_config: str | None = None):
+        if backend_config is None:
+            with open(self._config_path) as f:
+                backend_config = f.read()
         xray_api_port = find_free_port()
         self._config = XrayConfig(backend_config, api_port=xray_api_port)
         self._config.register_inbounds(self._storage)

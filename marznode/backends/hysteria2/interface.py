@@ -19,8 +19,9 @@ logger = logging.getLogger(__name__)
 
 class HysteriaBackend(VPNBackend):
     backend_type = "hysteria2"
+    config_format = 2
 
-    def __init__(self, executable_path: str, storage: BaseStorage):
+    def __init__(self, executable_path: str, config_path: str, storage: BaseStorage):
         self._executable_path = executable_path
         self._storage = storage
         self._inbound_tags = ["hysteria2"]
@@ -30,6 +31,7 @@ class HysteriaBackend(VPNBackend):
         self._runner = Hysteria(self._executable_path)
         self._stats_secret = None
         self._stats_port = None
+        self._config_path = config_path
 
     def contains_tag(self, tag: str) -> bool:
         return bool(tag == "hysteria2")
@@ -37,7 +39,18 @@ class HysteriaBackend(VPNBackend):
     def list_inbounds(self) -> list:
         return self._inbounds
 
-    async def start(self, config_path: str) -> None:
+    def get_config(self) -> str:
+        with open(self._config_path) as f:
+            return f.read()
+
+    def save_config(self, config: str) -> None:
+        with open(self._config_path, "w") as f:
+            f.write(config)
+
+    async def start(self, config: str | None = None) -> None:
+        if config is None:
+            with open(self._config_path) as f:
+                config = f.read()
         api_port = find_free_port()
         self._stats_port = find_free_port()
         self._stats_secret = token_hex(16)
@@ -51,8 +64,6 @@ class HysteriaBackend(VPNBackend):
         self._auth_site = web.TCPSite(app_runner, "127.0.0.1", api_port)
 
         await self._auth_site.start()
-        with open(config_path) as f:
-            config = f.read()
         cfg = HysteriaConfig(config, api_port, self._stats_port, self._stats_secret)
         cfg.register_inbounds(self._storage)
         self._inbounds = [cfg.get_inbound()]

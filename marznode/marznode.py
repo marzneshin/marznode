@@ -17,6 +17,8 @@ from marznode.config import (
     XRAY_CONFIG_PATH,
     HYSTERIA_ENABLED,
     XRAY_ENABLED,
+    XRAY_EXECUTABLE_PATH,
+    XRAY_ASSETS_PATH,
 )
 from marznode.service import MarzService
 from marznode.storage import MemoryStorage
@@ -48,12 +50,19 @@ async def main():
     storage = MemoryStorage()
     backends = dict()
     if XRAY_ENABLED:
-        xray_backend = XrayBackend(storage)
-        await xray_backend.start(XRAY_CONFIG_PATH)
+        xray_backend = XrayBackend(
+            XRAY_EXECUTABLE_PATH,
+            XRAY_ASSETS_PATH,
+            XRAY_CONFIG_PATH,
+            storage,
+        )
+        await xray_backend.start()
         backends.update({"xray": xray_backend})
     if HYSTERIA_ENABLED:
-        hysteria_backend = HysteriaBackend(HYSTERIA_EXECUTABLE_PATH, storage)
-        await hysteria_backend.start(HYSTERIA_CONFIG_PATH)
+        hysteria_backend = HysteriaBackend(
+            HYSTERIA_EXECUTABLE_PATH, HYSTERIA_CONFIG_PATH, storage
+        )
+        await hysteria_backend.start()
         backends.update({"hysteria2": hysteria_backend})
 
     server = Server([MarzService(storage, backends), Health()])

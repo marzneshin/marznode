@@ -9,6 +9,7 @@ from marznode.models import User, Inbound
 
 class VPNBackend(ABC):
     backend_type: str
+    config_format: int
 
     @abstractmethod
     def contains_tag(self, tag: str) -> bool:
@@ -40,4 +41,12 @@ class VPNBackend(ABC):
 
     @abstractmethod
     def list_inbounds(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_config(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def save_config(self, config: str):
         raise NotImplementedError

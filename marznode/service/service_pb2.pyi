@@ -8,8 +8,10 @@ DESCRIPTOR: _descriptor.FileDescriptor
 
 class ConfigFormat(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
+    PLAIN: _ClassVar[ConfigFormat]
     JSON: _ClassVar[ConfigFormat]
     YAML: _ClassVar[ConfigFormat]
+PLAIN: ConfigFormat
 JSON: ConfigFormat
 YAML: ConfigFormat
 
@@ -18,14 +20,16 @@ class Empty(_message.Message):
     def __init__(self) -> None: ...
 
 class Backend(_message.Message):
-    __slots__ = ("name", "type", "inbounds")
+    __slots__ = ("name", "type", "version", "inbounds")
     NAME_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
     INBOUNDS_FIELD_NUMBER: _ClassVar[int]
     name: str
     type: str
+    version: str
     inbounds: _containers.RepeatedCompositeFieldContainer[Inbound]
-    def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ..., inbounds: _Optional[_Iterable[_Union[Inbound, _Mapping]]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ..., version: _Optional[str] = ..., inbounds: _Optional[_Iterable[_Union[Inbound, _Mapping]]] = ...) -> None: ...
 
 class BackendsResponse(_message.Message):
     __slots__ = ("backends",)
