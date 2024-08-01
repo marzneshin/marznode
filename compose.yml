@@ -3,6 +3,7 @@ services:
     image: dawsh/marznode:latest
     restart: always
     network_mode: host
+    command: [ "sh", "-c", "sleep 10 && python3 marznode.py" ]
 
     environment:
       XRAY_EXECUTABLE_PATH: "/usr/local/bin/xray"
