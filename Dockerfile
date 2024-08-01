@@ -1,6 +1,10 @@
-FROM python:3.11-alpine
+FROM tobyxdd/hysteria:v2 AS hysteria-image
 
-ENV PYTHONUNBUFFERED 1
+FROM python:3.12-alpine
+
+ENV PYTHONUNBUFFERED=1
+
+COPY --from=hysteria-image /usr/local/bin/hysteria /usr/local/bin/hysteria
 
 WORKDIR /app
 
