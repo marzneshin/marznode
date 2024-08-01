@@ -46,15 +46,15 @@ async def main():
         )
 
     storage = MemoryStorage()
-    backends = []
+    backends = dict()
     if XRAY_ENABLED:
         xray_backend = XrayBackend(storage)
         await xray_backend.start(XRAY_CONFIG_PATH)
-        backends.append(xray_backend)
+        backends.update({"xray": xray_backend})
     if HYSTERIA_ENABLED:
         hysteria_backend = HysteriaBackend(HYSTERIA_EXECUTABLE_PATH, storage)
         await hysteria_backend.start(HYSTERIA_CONFIG_PATH)
-        backends.append(hysteria_backend)
+        backends.update({"hysteria2": hysteria_backend})
 
     server = Server([MarzService(storage, backends), Health()])
 
