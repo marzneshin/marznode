@@ -40,6 +40,10 @@ class XrayBackend(VPNBackend):
         self._storage = storage
         self._config_path = config_path
 
+    @property
+    def version(self):
+        return self._runner.version
+
     def contains_tag(self, tag: str) -> bool:
         return tag in self._inbound_tags
 

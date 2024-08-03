@@ -33,6 +33,10 @@ class HysteriaBackend(VPNBackend):
         self._stats_port = None
         self._config_path = config_path
 
+    @property
+    def version(self):
+        return self._runner.version
+
     def contains_tag(self, tag: str) -> bool:
         return bool(tag == "hysteria2")
 

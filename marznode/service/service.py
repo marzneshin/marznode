@@ -109,6 +109,7 @@ class MarzService(MarzServiceBase):
             Backend(
                 name=name,
                 type=backend.backend_type,
+                version=backend.version,
                 inbounds=[
                     Inbound(tag=i.tag, config=json.dumps(i.config))
                     for i in backend.list_inbounds()

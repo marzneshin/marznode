@@ -7,6 +7,8 @@ from collections import deque
 import yaml
 from anyio import BrokenResourceError, ClosedResourceError, create_memory_object_stream
 
+from marznode.backends.hysteria2._utils import get_version
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,6 +19,7 @@ class Hysteria:
         self._snd_streams = []
         self._logs_buffer = deque(maxlen=100)
         self._capture_task = None
+        self.version = get_version(executable_path)
         atexit.register(lambda: self.stop() if self.started else None)
 
     async def start(self, config: dict):

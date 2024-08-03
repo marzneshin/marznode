@@ -11,6 +11,11 @@ class VPNBackend(ABC):
     backend_type: str
     config_format: int
 
+    @property
+    @abstractmethod
+    def version(self) -> str | None:
+        raise NotImplementedError
+
     @abstractmethod
     def contains_tag(self, tag: str) -> bool:
         raise NotImplementedError

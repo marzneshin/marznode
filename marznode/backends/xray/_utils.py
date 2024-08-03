@@ -7,15 +7,15 @@ from typing import Dict
 
 def get_version(xray_path: str) -> str | None:
     """
-    get xray version by running it's executable
+    get xray version by running its executable
     :param xray_path:
     :return: xray version
     """
     cmd = [xray_path, "version"]
-    output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode("utf-8")
+    output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode()
     match = re.match(r"^Xray (\d+\.\d+\.\d+)", output)
     if match:
-        return match.groups()[0]
+        return match.group(1)
     return None
 
 
