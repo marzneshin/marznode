@@ -41,6 +41,10 @@ class XrayBackend(VPNBackend):
         self._config_path = config_path
 
     @property
+    def running(self) -> bool:
+        return self._runner.running
+
+    @property
     def version(self):
         return self._runner.version
 
@@ -101,6 +105,8 @@ class XrayBackend(VPNBackend):
             await self._api.add_inbound_user(inbound.tag, user_account)
         except (EmailExistsError, TagNotFoundError):
             raise
+        except OSError:
+            logger.warning("user addition requested when xray api is down")
 
     async def remove_user(self, user: User, inbound: Inbound):
         email = f"{user.id}.{user.username}"
@@ -108,9 +114,14 @@ class XrayBackend(VPNBackend):
             await self._api.remove_inbound_user(inbound.tag, email)
         except (EmailNotFoundError, TagNotFoundError):
             raise
+        except OSError:
+            logger.warning("user removal requested when xray api is down")
 
     async def get_usages(self, reset: bool = True) -> dict[int, int]:
-        api_stats = await self._api.get_users_stats(reset=reset)
+        try:
+            api_stats = await self._api.get_users_stats(reset=reset)
+        except OSError:
+            api_stats = []
         stats = defaultdict(int)
         for stat in api_stats:
             uid = int(stat.name.split(".")[0])

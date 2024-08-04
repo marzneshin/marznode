@@ -7,6 +7,7 @@ import json
 import logging
 from collections import defaultdict
 
+from grpclib import GRPCError, Status
 from grpclib.server import Stream
 
 from marznode.backends.base import VPNBackend
@@ -17,6 +18,7 @@ from .service_pb2 import (
     Backend,
     BackendLogsRequest,
     RestartBackendRequest,
+    BackendStats,
 )
 from .service_pb2 import (
     UserData,
@@ -180,3 +182,13 @@ class MarzService(MarzServiceBase):
         self._backends[message.backend_name].save_config(
             json.dumps(json.loads(message.config.configuration), indent=2)
         )
+
+    async def GetBackendStats(self, stream: Stream[Backend, BackendStats]):
+        backend = await stream.recv_message()
+        if backend.name not in self._backends.keys():
+            raise GRPCError(
+                Status.NOT_FOUND,
+                "Backend doesn't exist",
+            )
+        running = self._backends[backend.name].running
+        await stream.send_message(BackendStats(running=running))

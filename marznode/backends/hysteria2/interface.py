@@ -4,7 +4,7 @@ from secrets import token_hex
 from typing import AsyncIterator, Any
 
 import aiohttp
-from aiohttp import web
+from aiohttp import web, ClientConnectorError
 
 from marznode.backends.base import VPNBackend
 from marznode.backends.hysteria2._config import HysteriaConfig
@@ -32,6 +32,10 @@ class HysteriaBackend(VPNBackend):
         self._stats_secret = None
         self._stats_port = None
         self._config_path = config_path
+
+    @property
+    def running(self) -> bool:
+        return self._runner.running
 
     @property
     def version(self):
@@ -110,9 +114,12 @@ class HysteriaBackend(VPNBackend):
         url = "http://127.0.0.1:" + str(self._stats_port) + "/traffic?clear=1"
         headers = {"Authorization": self._stats_secret}
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as response:
-                data = await response.json()
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as response:
+                    data = await response.json()
+        except ClientConnectorError:
+            data = {}
         usages = {}
         for user_identifier, usage in data.items():
             uid = int(user_identifier.split(".")[0])

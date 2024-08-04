@@ -16,6 +16,11 @@ class VPNBackend(ABC):
     def version(self) -> str | None:
         raise NotImplementedError
 
+    @property
+    @abstractmethod
+    def running(self) -> bool:
+        raise NotImplementedError
+
     @abstractmethod
     def contains_tag(self, tag: str) -> bool:
         raise NotImplementedError

@@ -20,7 +20,7 @@ class Hysteria:
         self._logs_buffer = deque(maxlen=100)
         self._capture_task = None
         self.version = get_version(executable_path)
-        atexit.register(lambda: self.stop() if self.started else None)
+        atexit.register(lambda: self.stop() if self.running else None)
 
     async def start(self, config: dict):
         with tempfile.NamedTemporaryFile(
@@ -39,11 +39,11 @@ class Hysteria:
         asyncio.create_task(self.__capture_process_logs())
 
     def stop(self):
-        if self.started:
+        if self.running:
             self._process.terminate()
 
     @property
-    def started(self):
+    def running(self):
         return self._process and self._process.returncode is None
 
     async def __capture_process_logs(self):
