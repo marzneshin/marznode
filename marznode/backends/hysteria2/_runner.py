@@ -53,9 +53,6 @@ class Hysteria:
         async def capture_stream(stream):
             while True:
                 output = await stream.readline()
-                if output == b"":
-                    """break in case of eof"""
-                    return
                 for stm in self._snd_streams:
                     try:
                         await stm.send(output)
@@ -63,6 +60,10 @@ class Hysteria:
                         self._snd_streams.remove(stm)
                         continue
                 self._logs_buffer.append(output)
+                if output == b"":
+                    """break in case of eof"""
+                    logger.warning("Hysteria has stopped")
+                    return
 
         await asyncio.gather(
             capture_stream(self._process.stderr), capture_stream(self._process.stdout)
