@@ -22,6 +22,7 @@ class HysteriaBackend(VPNBackend):
     config_format = 2
 
     def __init__(self, executable_path: str, config_path: str, storage: BaseStorage):
+        self._app_runner = None
         self._executable_path = executable_path
         self._storage = storage
         self._inbound_tags = ["hysteria2"]
@@ -63,13 +64,13 @@ class HysteriaBackend(VPNBackend):
         self._stats_port = find_free_port()
         self._stats_secret = token_hex(16)
         if self._auth_site:
-            await self._auth_site.stop()
+            await self._app_runner.cleanup()
         app = web.Application()
         app.router.add_post("/", self._auth_callback)
-        app_runner = web.AppRunner(app)
-        await app_runner.setup()
+        self._app_runner = web.AppRunner(app)
+        await self._app_runner.setup()
 
-        self._auth_site = web.TCPSite(app_runner, "127.0.0.1", api_port)
+        self._auth_site = web.TCPSite(self._app_runner, "127.0.0.1", api_port)
 
         await self._auth_site.start()
         cfg = HysteriaConfig(config, api_port, self._stats_port, self._stats_secret)
