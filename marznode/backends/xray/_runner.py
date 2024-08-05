@@ -7,6 +7,7 @@ import re
 from collections import deque
 
 from anyio import create_memory_object_stream, ClosedResourceError, BrokenResourceError
+from anyio.streams.memory import MemoryObjectReceiveStream
 
 from ._config import XrayConfig
 from ._utils import get_version
@@ -58,6 +59,7 @@ class XrayCore:
             if line == b"" or re.match(
                 r".*\[Warning] core: Xray \d+\.\d+\.\d+ started", line.decode()
             ):  # either start or die
+                logs_stm.close()
                 return
 
     def stop(self):
@@ -104,7 +106,7 @@ class XrayCore:
             capture_stream(self._process.stderr), capture_stream(self._process.stdout)
         )
 
-    def get_logs_stm(self):
+    def get_logs_stm(self) -> MemoryObjectReceiveStream:
         new_snd_stm, new_rcv_stm = create_memory_object_stream()
         self._snd_streams.append(new_snd_stm)
         return new_rcv_stm
