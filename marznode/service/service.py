@@ -175,7 +175,6 @@ class MarzService(MarzServiceBase):
     ) -> None:
         message = await stream.recv_message()
 
-        await self._storage.flush_users()
         inbounds = await self._backends[message.backend_name].restart(
             message.config.configuration
         )
