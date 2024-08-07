@@ -175,19 +175,8 @@ class MarzService(MarzServiceBase):
     ) -> None:
         message = await stream.recv_message()
 
-        inbounds = await self._backends[message.backend_name].restart(
-            message.config.configuration
-        )
-        logger.debug(inbounds)
+        await self._backends[message.backend_name].restart(message.config.configuration)
         await stream.send_message(Empty())
-        if message.config.config_format == 1:
-            self._backends[message.backend_name].save_config(
-                json.dumps(json.loads(message.config.configuration), indent=2)
-            )
-        else:
-            self._backends[message.backend_name].save_config(
-                message.config.configuration
-            )
 
     async def GetBackendStats(self, stream: Stream[Backend, BackendStats]):
         backend = await stream.recv_message()

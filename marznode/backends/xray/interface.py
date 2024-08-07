@@ -1,6 +1,7 @@
 """What a vpn server should do"""
 
 import asyncio
+import json
 import logging
 from collections import defaultdict
 
@@ -39,6 +40,7 @@ class XrayBackend(VPNBackend):
         self._runner = XrayCore(executable_path, assets_path)
         self._storage = storage
         self._config_path = config_path
+        self._restart_lock = asyncio.Lock()
 
     @property
     def running(self) -> bool:
@@ -66,6 +68,8 @@ class XrayBackend(VPNBackend):
         if backend_config is None:
             with open(self._config_path) as f:
                 backend_config = f.read()
+        else:
+            self.save_config(json.dumps(json.loads(backend_config), indent=2))
         xray_api_port = find_free_port()
         self._config = XrayConfig(backend_config, api_port=xray_api_port)
         self._config.register_inbounds(self._storage)
@@ -84,10 +88,14 @@ class XrayBackend(VPNBackend):
 
     async def restart(self, backend_config: str | None) -> list[Inbound] | None:
         # xray_config = backend_config if backend_config else self._config
-        if not backend_config:
-            return await self._runner.restart(self._config)
-        self.stop()
-        await self.start(backend_config)
+        await self._restart_lock.acquire()
+        try:
+            if not backend_config:
+                return await self._runner.restart(self._config)
+            self.stop()
+            await self.start(backend_config)
+        finally:
+            self._restart_lock.release()
 
     async def add_user(self, user: User, inbound: Inbound):
         email = f"{user.id}.{user.username}"

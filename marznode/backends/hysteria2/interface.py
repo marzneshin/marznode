@@ -1,7 +1,8 @@
+import asyncio
 import json
 import logging
 from secrets import token_hex
-from typing import AsyncIterator, Any
+from typing import AsyncIterator
 
 import aiohttp
 from aiohttp import web, ClientConnectorError
@@ -33,6 +34,7 @@ class HysteriaBackend(VPNBackend):
         self._stats_secret = None
         self._stats_port = None
         self._config_path = config_path
+        self._restart_lock = asyncio.Lock()
 
     @property
     def running(self) -> bool:
@@ -60,6 +62,8 @@ class HysteriaBackend(VPNBackend):
         if config is None:
             with open(self._config_path) as f:
                 config = f.read()
+        else:
+            self.save_config(config)
         api_port = find_free_port()
         self._stats_port = find_free_port()
         self._stats_secret = token_hex(16)
@@ -83,9 +87,13 @@ class HysteriaBackend(VPNBackend):
         self._storage.remove_inbound("hysteria2")
         self._runner.stop()
 
-    async def restart(self, backend_config: Any) -> None:
-        await self.stop()
-        await self.start(backend_config)
+    async def restart(self, backend_config: str | None) -> None:
+        await self._restart_lock.acquire()
+        try:
+            await self.stop()
+            await self.start(backend_config)
+        finally:
+            self._restart_lock.release()
 
     async def add_user(self, user: User, inbound: Inbound) -> None:
         password = generate_password(user.key)
