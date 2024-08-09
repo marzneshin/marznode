@@ -48,9 +48,13 @@ class HysteriaConfig:
             self._inbound.update({"path": obfs_password, "header_type": obfs_type})
 
     def register_inbounds(self, storage: BaseStorage):
-        inbound = self._inbound
-        storage.register_inbound(
-            Inbound(tag=inbound["tag"], protocol=inbound["protocol"], config=inbound)
+        storage.register_inbound(self.get_inbound())
+
+    def get_inbound(self):
+        return Inbound(
+            tag=self._inbound["tag"],
+            protocol=self._inbound["protocol"],
+            config=self._inbound,
         )
 
     def render(self):

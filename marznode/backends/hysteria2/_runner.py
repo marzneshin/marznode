@@ -7,6 +7,8 @@ from collections import deque
 import yaml
 from anyio import BrokenResourceError, ClosedResourceError, create_memory_object_stream
 
+from marznode.backends.hysteria2._utils import get_version
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,7 +19,8 @@ class Hysteria:
         self._snd_streams = []
         self._logs_buffer = deque(maxlen=100)
         self._capture_task = None
-        atexit.register(lambda: self.stop() if self.started else None)
+        self.version = get_version(executable_path)
+        atexit.register(lambda: self.stop() if self.running else None)
 
     async def start(self, config: dict):
         with tempfile.NamedTemporaryFile(
@@ -36,11 +39,11 @@ class Hysteria:
         asyncio.create_task(self.__capture_process_logs())
 
     def stop(self):
-        if self.started:
+        if self.running:
             self._process.terminate()
 
     @property
-    def started(self):
+    def running(self):
         return self._process and self._process.returncode is None
 
     async def __capture_process_logs(self):
@@ -50,9 +53,6 @@ class Hysteria:
         async def capture_stream(stream):
             while True:
                 output = await stream.readline()
-                if output == b"":
-                    """break in case of eof"""
-                    return
                 for stm in self._snd_streams:
                     try:
                         await stm.send(output)
@@ -60,6 +60,10 @@ class Hysteria:
                         self._snd_streams.remove(stm)
                         continue
                 self._logs_buffer.append(output)
+                if output == b"":
+                    """break in case of eof"""
+                    logger.warning("Hysteria has stopped")
+                    return
 
         await asyncio.gather(
             capture_stream(self._process.stderr), capture_stream(self._process.stdout)

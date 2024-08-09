@@ -8,6 +8,19 @@ from marznode.models import User, Inbound
 
 
 class VPNBackend(ABC):
+    backend_type: str
+    config_format: int
+
+    @property
+    @abstractmethod
+    def version(self) -> str | None:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def running(self) -> bool:
+        raise NotImplementedError
+
     @abstractmethod
     def contains_tag(self, tag: str) -> bool:
         raise NotImplementedError
@@ -34,4 +47,16 @@ class VPNBackend(ABC):
 
     @abstractmethod
     async def get_usages(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_inbounds(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_config(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def save_config(self, config: str):
         raise NotImplementedError

@@ -1,10 +1,11 @@
+import asyncio
 import json
 import logging
 from secrets import token_hex
-from typing import AsyncIterator, Any
+from typing import AsyncIterator
 
 import aiohttp
-from aiohttp import web
+from aiohttp import web, ClientConnectorError
 
 from marznode.backends.base import VPNBackend
 from marznode.backends.hysteria2._config import HysteriaConfig
@@ -18,37 +19,67 @@ logger = logging.getLogger(__name__)
 
 
 class HysteriaBackend(VPNBackend):
-    def __init__(self, executable_path: str, storage: BaseStorage):
+    backend_type = "hysteria2"
+    config_format = 2
+
+    def __init__(self, executable_path: str, config_path: str, storage: BaseStorage):
+        self._app_runner = None
         self._executable_path = executable_path
         self._storage = storage
-        self._inbounds = ["hysteria2"]
+        self._inbound_tags = ["hysteria2"]
+        self._inbounds = list()
         self._users = {}
         self._auth_site = None
         self._runner = Hysteria(self._executable_path)
         self._stats_secret = None
         self._stats_port = None
+        self._config_path = config_path
+        self._restart_lock = asyncio.Lock()
+
+    @property
+    def running(self) -> bool:
+        return self._runner.running
+
+    @property
+    def version(self):
+        return self._runner.version
 
     def contains_tag(self, tag: str) -> bool:
         return bool(tag == "hysteria2")
 
-    async def start(self, config_path: str) -> None:
+    def list_inbounds(self) -> list:
+        return self._inbounds
+
+    def get_config(self) -> str:
+        with open(self._config_path) as f:
+            return f.read()
+
+    def save_config(self, config: str) -> None:
+        with open(self._config_path, "w") as f:
+            f.write(config)
+
+    async def start(self, config: str | None = None) -> None:
+        if config is None:
+            with open(self._config_path) as f:
+                config = f.read()
+        else:
+            self.save_config(config)
         api_port = find_free_port()
         self._stats_port = find_free_port()
         self._stats_secret = token_hex(16)
         if self._auth_site:
-            await self._auth_site.stop()
+            await self._app_runner.cleanup()
         app = web.Application()
         app.router.add_post("/", self._auth_callback)
-        app_runner = web.AppRunner(app)
-        await app_runner.setup()
+        self._app_runner = web.AppRunner(app)
+        await self._app_runner.setup()
 
-        self._auth_site = web.TCPSite(app_runner, "127.0.0.1", api_port)
+        self._auth_site = web.TCPSite(self._app_runner, "127.0.0.1", api_port)
 
         await self._auth_site.start()
-        with open(config_path) as f:
-            config = f.read()
         cfg = HysteriaConfig(config, api_port, self._stats_port, self._stats_secret)
         cfg.register_inbounds(self._storage)
+        self._inbounds = [cfg.get_inbound()]
         await self._runner.start(cfg.render())
 
     async def stop(self):
@@ -56,9 +87,13 @@ class HysteriaBackend(VPNBackend):
         self._storage.remove_inbound("hysteria2")
         self._runner.stop()
 
-    async def restart(self, backend_config: Any) -> None:
-        await self.stop()
-        await self.start(backend_config)
+    async def restart(self, backend_config: str | None) -> None:
+        await self._restart_lock.acquire()
+        try:
+            await self.stop()
+            await self.start(backend_config)
+        finally:
+            self._restart_lock.release()
 
     async def add_user(self, user: User, inbound: Inbound) -> None:
         password = generate_password(user.key)
@@ -88,9 +123,12 @@ class HysteriaBackend(VPNBackend):
         url = "http://127.0.0.1:" + str(self._stats_port) + "/traffic?clear=1"
         headers = {"Authorization": self._stats_secret}
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as response:
-                data = await response.json()
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as response:
+                    data = await response.json()
+        except ClientConnectorError:
+            data = {}
         usages = {}
         for user_identifier, usage in data.items():
             uid = int(user_identifier.split(".")[0])

@@ -3,9 +3,11 @@
 import asyncio
 import atexit
 import logging
+import re
 from collections import deque
 
 from anyio import create_memory_object_stream, ClosedResourceError, BrokenResourceError
+from anyio.streams.memory import MemoryObjectReceiveStream
 
 from ._config import XrayConfig
 from ._utils import get_version
@@ -28,10 +30,10 @@ class XrayCore:
         self._logs_buffer = deque(maxlen=100)
         self._env = {"XRAY_LOCATION_ASSET": assets_path}
 
-        atexit.register(lambda: self.stop() if self.started else None)
+        atexit.register(lambda: self.stop() if self.running else None)
 
     async def start(self, config: XrayConfig):
-        if self.started is True:
+        if self.running is True:
             raise RuntimeError("Xray is started already")
 
         if config.get("log", {}).get("logLevel") in ("none", "error"):
@@ -51,16 +53,22 @@ class XrayCore:
         await self._process.stdin.wait_closed()
         logger.info("Xray core %s started", self.version)
 
+        logs_stm = self.get_logs_stm()
         asyncio.create_task(self.__capture_process_logs())
+        async for line in logs_stm:
+            if line == b"" or re.match(
+                r".*\[Warning] core: Xray \d+\.\d+\.\d+ started", line.decode()
+            ):  # either start or die
+                logs_stm.close()
+                return
 
     def stop(self):
         """stops xray if it is started"""
-        if not self.started:
+        if not self.running:
             return
 
         self._process.terminate()
         self._process = None
-        logger.warning("Xray core stopped")
 
     async def restart(self, config: XrayConfig):
         """restart xray"""
@@ -69,7 +77,7 @@ class XrayCore:
 
         try:
             self.restarting = True
-            logger.warning("Restarting Xray core...")
+            logger.warning("Restarting Xray core")
             self.stop()
             await self.start(config)
         finally:
@@ -82,9 +90,6 @@ class XrayCore:
         async def capture_stream(stream):
             while True:
                 output = await stream.readline()
-                if output == b"":
-                    """break in case of eof"""
-                    return
                 for stm in self._snd_streams:
                     try:
                         await stm.send(output)
@@ -92,12 +97,16 @@ class XrayCore:
                         self._snd_streams.remove(stm)
                         continue
                 self._logs_buffer.append(output)
+                if output == b"":
+                    """break in case of eof"""
+                    logger.warning("Xray stopped/died")
+                    return
 
         await asyncio.gather(
             capture_stream(self._process.stderr), capture_stream(self._process.stdout)
         )
 
-    def get_logs_stm(self):
+    def get_logs_stm(self) -> MemoryObjectReceiveStream:
         new_snd_stm, new_rcv_stm = create_memory_object_stream()
         self._snd_streams.append(new_snd_stm)
         return new_rcv_stm
@@ -106,8 +115,7 @@ class XrayCore:
         """makes a copy of the buffer, so it could be read multiple times
         the buffer is never cleared in case logs from xray's exit are useful"""
         return self._logs_buffer.copy()
-        # return [line for line in self._logs_buffer]
 
     @property
-    def started(self):
+    def running(self):
         return self._process and self._process.returncode is None

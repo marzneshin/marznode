@@ -29,10 +29,8 @@ class XrayConfig(dict):
         super().__init__(config)
 
         self.inbounds = []
-        self.inbounds_by_protocol = {}
         self.inbounds_by_tag = {}
         # self._fallbacks_inbound = self.get_inbound(XRAY_FALLBACKS_INBOUND_TAG)
-        self._addr_clients_by_tag = {}
         self._resolve_inbounds()
 
         self._apply_api()
@@ -72,7 +70,7 @@ class XrayConfig(dict):
     def _resolve_inbounds(self):
         for inbound in self["inbounds"]:
             if (
-                inbound["protocol"].lower()
+                inbound.get("protocol", "").lower()
                 not in {
                     "vmess",
                     "trojan",
@@ -82,12 +80,6 @@ class XrayConfig(dict):
                 or "tag" not in inbound
             ):
                 continue
-
-            if not inbound.get("settings"):
-                inbound["settings"] = {}
-            if not inbound["settings"].get("clients"):
-                inbound["settings"]["clients"] = []
-            self._addr_clients_by_tag[inbound["tag"]] = inbound["settings"]["clients"]
 
             settings = {
                 "tag": inbound["tag"],
@@ -123,23 +115,12 @@ class XrayConfig(dict):
                     if inbound["protocol"] == "vless" and net == "tcp":
                         settings["flow"] = XRAY_VLESS_REALITY_FLOW
 
-                    try:
-                        settings["pbk"] = tls_settings["publicKey"]
-                    except KeyError:
-                        pvk = tls_settings.get("privateKey")
-                        if not pvk:
-                            raise ValueError(
-                                f"You need to provide privateKey in realitySettings of {inbound['tag']}"
-                            )
-                        x25519 = get_x25519(XRAY_EXECUTABLE_PATH, pvk)
-                        settings["pbk"] = x25519["public_key"]
+                    pvk = tls_settings.get("privateKey")
 
-                    try:
-                        settings["sid"] = tls_settings.get("shortIds")[0]
-                    except (IndexError, TypeError):
-                        raise ValueError(
-                            f"You need to define at least one shortID in realitySettings of {inbound['tag']}"
-                        )
+                    x25519 = get_x25519(XRAY_EXECUTABLE_PATH, pvk)
+                    settings["pbk"] = x25519["public_key"]
+
+                    settings["sid"] = tls_settings.get("shortIds", [""])[0]
 
                 if net == "tcp":
                     header = net_settings.get("header", {})
@@ -178,28 +159,15 @@ class XrayConfig(dict):
             self.inbounds.append(settings)
             self.inbounds_by_tag[inbound["tag"]] = settings
 
-            try:
-                self.inbounds_by_protocol[inbound["protocol"]].append(settings)
-            except KeyError:
-                self.inbounds_by_protocol[inbound["protocol"]] = [settings]
-
-    def get_inbound(self, tag) -> dict:
-        for inbound in self["inbounds"]:
-            if inbound["tag"] == tag:
-                return inbound
-
-    def get_outbound(self, tag) -> dict:
-        for outbound in self["outbounds"]:
-            if outbound["tag"] == tag:
-                return outbound
-
     def register_inbounds(self, storage: BaseStorage):
-        inbounds = [
+        for inbound in self.list_inbounds():
+            storage.register_inbound(inbound)
+
+    def list_inbounds(self) -> list[Inbound]:
+        return [
             Inbound(tag=i["tag"], protocol=i["protocol"], config=i)
             for i in self.inbounds_by_tag.values()
         ]
-        for inbound in inbounds:
-            storage.register_inbound(inbound)
 
     def to_json(self, **json_kwargs):
         return json.dumps(self, **json_kwargs)
