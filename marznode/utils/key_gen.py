@@ -4,7 +4,6 @@ import uuid
 
 import xxhash
 
-import binascii
 
 def generate_uuid(key: str) -> uuid.UUID:
     """
@@ -29,7 +28,6 @@ def generate_uuid_v2(key: str) -> str:
     :param key: the seed
     :return: the uuid
     """
-    hex_bytes = binascii.unhexlify(key)
     return str(uuid.UUID(key))
 
 def generate_password_v2(key: str) -> str:
