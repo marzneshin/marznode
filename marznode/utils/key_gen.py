@@ -39,22 +39,3 @@ def generate_password_v2(key: str) -> str:
     :return: the key
     """
     return key
-
-"""Used to convert uuid/password back to a key"""
-
-def generate_key_from_uuid(uuid_string: str) -> str:
-    """
-    converts a UUID-like string back to a key
-    :param uuid_string: the uuid
-    :return: the key
-    """
-    uuid_obj = uuid.UUID(uuid_string)
-    return binascii.hexlify(uuid_obj.bytes).decode('utf-8')
-
-def generate_key_from_password(password: str) -> str:
-    """
-    converts a password back to a key
-    :param password: the seed
-    :return: the password
-    """
-    return password

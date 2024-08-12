@@ -30,3 +30,4 @@ SSL_KEY_FILE = config("SSL_KEY_FILE", default="./ssl_key.pem")
 SSL_CLIENT_CERT_FILE = config("SSL_CLIENT_CERT_FILE", default="")
 
 DEBUG = config("DEBUG", cast=bool, default=False)
+REVERSIBLE_KEY = config("REVERSIBLE_KEY", cast=bool, default=False)
