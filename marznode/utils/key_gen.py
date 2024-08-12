@@ -4,6 +4,7 @@ import uuid
 
 import xxhash
 
+from marznode import config
 
 def generate_uuid(key: str) -> uuid.UUID:
     """
@@ -11,7 +12,10 @@ def generate_uuid(key: str) -> uuid.UUID:
     :param key: seed used to generate the uuid
     :return: the uuid
     """
-    return uuid.UUID(bytes=xxhash.xxh128(key.encode()).digest())
+    if config.REVERSIBLE_KEY:
+        return str(uuid.UUID(key))
+    else:
+        return uuid.UUID(bytes=xxhash.xxh128(key.encode()).digest())
 
 
 def generate_password(key: str) -> str:
@@ -20,20 +24,7 @@ def generate_password(key: str) -> str:
     :param key: the seed
     :return: a 32 characters long hex string
     """
-    return xxhash.xxh128(key.encode()).hexdigest()
-
-def generate_uuid_v2(key: str) -> str:
-    """
-    generates a reversible UUID-like string based on key as seed
-    :param key: the seed
-    :return: the uuid
-    """
-    return str(uuid.UUID(key))
-
-def generate_password_v2(key: str) -> str:
-    """
-    generates a reversible password based on the key as seed
-    :param key: the seed
-    :return: the key
-    """
-    return key
+    if config.REVERSIBLE_KEY:
+        return key
+    else:
+        return xxhash.xxh128(key.encode()).hexdigest()

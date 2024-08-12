@@ -17,8 +17,7 @@ from ..proto.proxy.shadowsocks.config_pb2 import Account as ShadowsocksAccountPb
 from ..proto.proxy.trojan.config_pb2 import Account as TrojanAccountPb2
 from ..proto.proxy.vless.account_pb2 import Account as VLESSAccountPb2
 from ..proto.proxy.vmess.account_pb2 import Account as VMessAccountPb2
-from marznode.utils.key_gen import generate_uuid, generate_password, generate_uuid_v2, generate_password_v2
-from marznode import config
+from marznode.utils.key_gen import generate_uuid, generate_password
 
 
 class Account(BaseModel, ABC):
@@ -39,15 +38,9 @@ class Account(BaseModel, ABC):
         if "seed" in info.data:
             seed = info.data["seed"]
             if info.field_name == "id":
-                if config.REVERSIBLE_KEY:
-                    return generate_uuid_v2(seed)
-                else:
-                    return generate_uuid(seed)
+                return generate_uuid(seed)
             elif info.field_name == "password":
-                if config.REVERSIBLE_KEY:
-                    generate_password_v2(seed)
-                else:
-                    return generate_password(seed)
+                return generate_password(seed)
         raise ValidationError("Both password/id and seed are empty")
 
     def __repr__(self) -> str:
