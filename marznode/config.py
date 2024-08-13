@@ -32,8 +32,12 @@ SSL_CLIENT_CERT_FILE = config("SSL_CLIENT_CERT_FILE", default="")
 
 DEBUG = config("DEBUG", cast=bool, default=False)
 
+
 class AuthAlgorithm(Enum):
     PLAIN = "plain"
     XXH128 = "xxh128"
 
-AUTH_GENERATION_ALGORITHM = config("AUTH_GENERATION_ALGORITHM", cast=AuthAlgorithm, default=AuthAlgorithm.XXH128)
+
+AUTH_GENERATION_ALGORITHM = config(
+    "AUTH_GENERATION_ALGORITHM", cast=AuthAlgorithm, default=AuthAlgorithm.XXH128
+)
