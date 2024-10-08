@@ -57,17 +57,20 @@ class Hysteria:
                     try:
                         await stm.send(output)
                     except (ClosedResourceError, BrokenResourceError):
-                        self._snd_streams.remove(stm)
+                        try:
+                            self._snd_streams.remove(stm)
+                        except ValueError:
+                            pass
                         continue
                 self._logs_buffer.append(output)
                 if output == b"":
                     """break in case of eof"""
-                    logger.warning("Hysteria has stopped")
                     return
 
         await asyncio.gather(
             capture_stream(self._process.stderr), capture_stream(self._process.stdout)
         )
+        logger.warning("Hysteria has stopped")
 
     def get_logs_stm(self):
         new_snd_stm, new_rcv_stm = create_memory_object_stream()
