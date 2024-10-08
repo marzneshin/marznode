@@ -36,8 +36,8 @@ class XrayCore:
         if self.running is True:
             raise RuntimeError("Xray is started already")
 
-        if config.get("log", {}).get("logLevel") in ("none", "error"):
-            config["log"]["logLevel"] = "warning"
+        if config.get("log", {}).get("loglevel") in ("none", "error"):
+            config["log"]["loglevel"] = "warning"
 
         cmd = [self.executable_path, "run", "-config", "stdin:"]
         self._process = await asyncio.create_subprocess_shell(
