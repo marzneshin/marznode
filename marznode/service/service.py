@@ -10,7 +10,7 @@ from collections import defaultdict
 from grpclib import GRPCError, Status
 from grpclib.server import Stream
 
-from marznode.backends.base import VPNBackend
+from marznode.backends.abstract_backend import VPNBackend
 from marznode.storage import BaseStorage
 from .service_grpc import MarzServiceBase
 from .service_pb2 import (

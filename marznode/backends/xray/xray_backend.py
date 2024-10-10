@@ -5,7 +5,7 @@ import json
 import logging
 from collections import defaultdict
 
-from marznode.backends.base import VPNBackend
+from marznode.backends.abstract_backend import VPNBackend
 from marznode.backends.xray._config import XrayConfig
 from marznode.backends.xray._runner import XrayCore
 from marznode.backends.xray.api import XrayAPI

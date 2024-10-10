@@ -7,7 +7,7 @@ from typing import AsyncIterator
 import aiohttp
 from aiohttp import web, ClientConnectorError
 
-from marznode.backends.base import VPNBackend
+from marznode.backends.abstract_backend import VPNBackend
 from marznode.backends.hysteria2._config import HysteriaConfig
 from marznode.backends.hysteria2._runner import Hysteria
 from marznode.models import User, Inbound

@@ -9,8 +9,8 @@ from grpclib.server import Server
 from grpclib.utils import graceful_exit
 
 from marznode import config
-from marznode.backends.hysteria2.interface import HysteriaBackend
-from marznode.backends.xray.interface import XrayBackend
+from marznode.backends.hysteria2.hysteria2_backend import HysteriaBackend
+from marznode.backends.xray.xray_backend import XrayBackend
 from marznode.config import (
     HYSTERIA_EXECUTABLE_PATH,
     HYSTERIA_CONFIG_PATH,
