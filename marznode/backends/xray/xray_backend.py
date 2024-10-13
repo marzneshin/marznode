@@ -15,6 +15,7 @@ from marznode.backends.xray.api.exceptions import (
     TagNotFoundError,
 )
 from marznode.backends.xray.api.types.account import accounts_map
+from marznode.config import XRAY_RESTART_ON_FAILURE, XRAY_RESTART_ON_FAILURE_INTERVAL
 from marznode.models import User, Inbound
 from marznode.storage import BaseStorage
 from marznode.utils.network import find_free_port
@@ -41,6 +42,7 @@ class XrayBackend(VPNBackend):
         self._storage = storage
         self._config_path = config_path
         self._restart_lock = asyncio.Lock()
+        asyncio.create_task(self._restart_on_failure())
 
     @property
     def running(self) -> bool:
@@ -64,6 +66,23 @@ class XrayBackend(VPNBackend):
         with open(self._config_path, "w") as f:
             f.write(config)
 
+    async def add_storage_users(self):
+        for inbound in self._inbounds:
+            for user in await self._storage.list_inbound_users(inbound.tag):
+                await self.add_user(user, inbound)
+
+    async def _restart_on_failure(self):
+        while True:
+            await self._runner.stop_event.wait()
+            if self._restart_lock.locked():
+                logger.debug("Xray restarting as planned")
+            else:
+                logger.debug("Xray stopped unexpectedly")
+                if XRAY_RESTART_ON_FAILURE:
+                    await asyncio.sleep(XRAY_RESTART_ON_FAILURE_INTERVAL)
+                    await self.start()
+                    await self.add_storage_users()
+
     async def start(self, backend_config: str | None = None):
         if backend_config is None:
             with open(self._config_path) as f:
@@ -77,7 +96,6 @@ class XrayBackend(VPNBackend):
         self._inbounds = list(self._config.list_inbounds())
         self._api = XrayAPI("127.0.0.1", xray_api_port)
         await self._runner.start(self._config)
-        await asyncio.sleep(0.15)
 
     def stop(self):
         self._runner.stop()

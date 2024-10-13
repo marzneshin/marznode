@@ -52,6 +52,10 @@ class BaseStorage(ABC):
         """
 
     @abstractmethod
+    async def list_inbound_users(self, tag: str) -> list[User]:
+        """returns a list of users subscribed to an inbound"""
+
+    @abstractmethod
     def register_inbound(self, inbound: Inbound) -> None:
         """
         registers a new inbound

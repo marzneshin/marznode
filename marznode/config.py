@@ -1,8 +1,9 @@
 """loads config files from environment and env file"""
 
+from enum import Enum
+
 from decouple import config
 from dotenv import load_dotenv
-from enum import Enum
 
 load_dotenv()
 
@@ -15,7 +16,10 @@ XRAY_EXECUTABLE_PATH = config("XRAY_EXECUTABLE_PATH", default="/usr/bin/xray")
 XRAY_ASSETS_PATH = config("XRAY_ASSETS_PATH", default="/usr/share/xray")
 XRAY_CONFIG_PATH = config("XRAY_CONFIG_PATH", default="/etc/xray/config.json")
 XRAY_VLESS_REALITY_FLOW = config("XRAY_VLESS_REALITY_FLOW", default="xtls-rprx-vision")
-
+XRAY_RESTART_ON_FAILURE = config("XRAY_RESTART_ON_FAILURE", cast=bool, default=False)
+XRAY_RESTART_ON_FAILURE_INTERVAL = config(
+    "XRAY_RESTART_ON_FAILURE_INTERVAL", cast=int, default=0
+)
 
 HYSTERIA_ENABLED = config("HYSTERIA_ENABLED", cast=bool, default=False)
 HYSTERIA_EXECUTABLE_PATH = config(
