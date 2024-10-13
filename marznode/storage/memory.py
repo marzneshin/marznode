@@ -32,6 +32,15 @@ class MemoryStorage(BaseStorage):
             # return [i for i in self.storage["inbounds"].values() if i.tag in tag]
         return list(self.storage["inbounds"].values())
 
+    async def list_inbound_users(self, tag: str) -> list[User]:
+        users = []
+        for user in self.storage["users"].values():
+            for inbound in user.inbounds:
+                if inbound.tag == tag:
+                    users.append(user)
+                    break
+        return users
+
     async def remove_user(self, user: User) -> None:
         del self.storage["users"][user.id]
 

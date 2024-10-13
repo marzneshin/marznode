@@ -29,6 +29,7 @@ class XrayCore:
         self._snd_streams = []
         self._logs_buffer = deque(maxlen=100)
         self._env = {"XRAY_LOCATION_ASSET": assets_path}
+        self.stop_event = asyncio.Event()
 
         atexit.register(lambda: self.stop() if self.running else None)
 
@@ -108,6 +109,8 @@ class XrayCore:
             capture_stream(self._process.stderr), capture_stream(self._process.stdout)
         )
         logger.warning("Xray stopped/died")
+        self.stop_event.set()
+        self.stop_event.clear()
 
     def get_logs_stm(self) -> MemoryObjectReceiveStream:
         new_snd_stm, new_rcv_stm = create_memory_object_stream()
