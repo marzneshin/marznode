@@ -31,16 +31,25 @@ class XrayCore:
         self._env = {"XRAY_LOCATION_ASSET": assets_path}
         self.stop_event = asyncio.Event()
 
+        self.error_log = None
+
         atexit.register(lambda: self.stop() if self.running else None)
 
     async def start(self, config: XrayConfig):
         if self.running is True:
             raise RuntimeError("Xray is started already")
-
         if config.get("log", {}).get("loglevel") in ("none", "error"):
             config["log"]["loglevel"] = "warning"
-
         cmd = [self.executable_path, "run", "-config", "stdin:"]
+
+        if "error" in config["log"]:
+            try:
+                self.error_log = open(config["log"]["error"], "ab")
+                config["log"].pop("error")
+            except OSError as e:
+                logger.error(f"Unable to open file {config['log']['error']}")
+                raise e
+
         self._process = await asyncio.create_subprocess_shell(
             " ".join(cmd),
             env=self._env,
@@ -48,12 +57,12 @@ class XrayCore:
             stderr=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
         )
+
         self._process.stdin.write(str.encode(config.to_json()))
         await self._process.stdin.drain()
         self._process.stdin.close()
         await self._process.stdin.wait_closed()
         logger.info("Xray core %s started", self.version)
-
         logs_stm = self.get_logs_stm()
         asyncio.create_task(self.__capture_process_logs())
         async for line in logs_stm:
@@ -69,6 +78,8 @@ class XrayCore:
             return
 
         self._process.terminate()
+        if self.error_log != None:
+            self.error_log.close()
         self._process = None
 
     async def restart(self, config: XrayConfig):
@@ -87,10 +98,11 @@ class XrayCore:
     async def __capture_process_logs(self):
         """capture the logs, push it into the stream, and store it in the deck
         note that the stream blocks sending if it's full, so a deck is necessary"""
-
-        async def capture_stream(stream):
+        async def capture_stream(stream, file=None):
             while True:
                 output = await stream.readline()
+                if file != None:
+                    file.write(output)
                 for stm in self._snd_streams:
                     try:
                         await stm.send(output)
@@ -104,9 +116,9 @@ class XrayCore:
                 if output == b"":
                     """break in case of eof"""
                     return
-
         await asyncio.gather(
-            capture_stream(self._process.stderr), capture_stream(self._process.stdout)
+            capture_stream(self._process.stderr), 
+            capture_stream(self._process.stdout, self.error_log)
         )
         logger.warning("Xray stopped/died")
         self.stop_event.set()
