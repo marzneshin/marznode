@@ -44,7 +44,7 @@ class XrayCore:
 
         if "error" in config["log"]:
             try:
-                self.error_log = open(config["log"]["error"], "ab")
+                self.error_log = open(config["log"]["error"], "ab", buffering=0)
                 config["log"].pop("error")
             except OSError as e:
                 logger.error(f"Unable to open file {config['log']['error']}")
