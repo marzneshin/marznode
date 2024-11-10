@@ -5,8 +5,9 @@ import atexit
 import logging
 import re
 from collections import deque
+import os
 
-from anyio import create_memory_object_stream, ClosedResourceError, BrokenResourceError
+from anyio import create_memory_object_stream, ClosedResourceError, BrokenResourceError, open_file
 from anyio.streams.memory import MemoryObjectReceiveStream
 
 from ._config import XrayConfig
@@ -32,8 +33,9 @@ class XrayCore:
         self.stop_event = asyncio.Event()
 
         self.error_log = None
+        self.error_pipe = None
 
-        atexit.register(lambda: self.stop() if self.running else None)
+        atexit.register(lambda: self.stop() if self.running else None) 
 
     async def start(self, config: XrayConfig):
         if self.running is True:
@@ -44,12 +46,16 @@ class XrayCore:
 
         if "error" in config["log"]:
             try:
-                self.error_log = open(config["log"]["error"], "ab", buffering=0)
-                config["log"].pop("error")
+                self.error_pipe = "/tmp/marznode_error_log"
+                if not os.path.exists(self.error_pipe):
+                    os.mkfifo(self.error_pipe)
+                self.error_log = open(config["log"]["error"], mode="ab", buffering=0)
+                config["log"]["error"] = self.error_pipe
             except OSError as e:
                 logger.error(f"Unable to open file {config['log']['error']}")
                 raise e
 
+        print(config["log"])
         self._process = await asyncio.create_subprocess_shell(
             " ".join(cmd),
             env=self._env,
@@ -80,6 +86,8 @@ class XrayCore:
         self._process.terminate()
         if self.error_log != None:
             self.error_log.close()
+        if os.path.exists(self.error_pipe):
+            os.remove(self.error_pipe)
         self._process = None
 
     async def restart(self, config: XrayConfig):
@@ -101,8 +109,6 @@ class XrayCore:
         async def capture_stream(stream, file=None):
             while True:
                 output = await stream.readline()
-                if file != None:
-                    file.write(output)
                 for stm in self._snd_streams:
                     try:
                         await stm.send(output)
@@ -116,10 +122,38 @@ class XrayCore:
                 if output == b"":
                     """break in case of eof"""
                     return
-        await asyncio.gather(
-            capture_stream(self._process.stderr), 
-            capture_stream(self._process.stdout, self.error_log)
-        )
+        
+        async def fifo_stream(fifo_path, file):
+            with open(fifo_path, "rb") as fifo:
+                while True:
+                    output = await asyncio.to_thread(fifo.readline)
+                    if output:
+                        file.write(output)
+                        for stm in self._snd_streams:
+                            try:
+                                await stm.send(output)
+                            except (ClosedResourceError, BrokenResourceError):
+                                try:
+                                    self._snd_streams.remove(stm)
+                                except ValueError:
+                                    pass
+                                continue
+                    else:
+                        await asyncio.sleep(0.1)
+
+                    self._logs_buffer.append(output)
+                    if output == b"":
+                        """break in case of eof"""
+                        return
+        tasks = [
+            capture_stream(self._process.stderr),
+            capture_stream(self._process.stdout)
+        ]
+        if self.error_log is not None:
+            tasks.append(fifo_stream(self.error_pipe, self.error_log))
+
+        await asyncio.gather(*tasks)
+
         logger.warning("Xray stopped/died")
         self.stop_event.set()
         self.stop_event.clear()
