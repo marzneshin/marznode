@@ -46,7 +46,7 @@ class XrayCore:
 
         if "error" in config["log"]:
             try:
-                self.error_pipe = "/tmp/marznode_error_log"
+                self.error_pipe = "/var/lib/marznode/error_pipe"
                 if not os.path.exists(self.error_pipe):
                     os.mkfifo(self.error_pipe)
                 self.error_log = open(config["log"]["error"], mode="ab", buffering=0)
