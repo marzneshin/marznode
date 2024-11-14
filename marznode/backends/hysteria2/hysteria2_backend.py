@@ -100,7 +100,9 @@ class HysteriaBackend(VPNBackend):
         self._users.update({password: user})
 
     async def remove_user(self, user: User, inbound: Inbound) -> None:
-        self._users.pop(user.key)
+        if not self._users.get(password := generate_password(user.key)):
+            return
+        self._users.pop(password)
         url = "http://127.0.0.1:" + str(self._stats_port) + "/kick"
         headers = {"Authorization": self._stats_secret}
 
