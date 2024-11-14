@@ -132,6 +132,7 @@ class MarzService(MarzServiceBase):
         for storage_user in await self._storage.list_users():
             if storage_user.id not in user_ids:
                 await self._remove_user(storage_user, storage_user.inbounds)
+                await self._storage.remove_user(storage_user)
         await stream.send_message(Empty())
 
     async def FetchUsersStats(self, stream: Stream[Empty, UsersStats]) -> None:
