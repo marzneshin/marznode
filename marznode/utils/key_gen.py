@@ -14,7 +14,7 @@ def generate_uuid(key: str) -> uuid.UUID:
     :return: the uuid
     """
     if AUTH_GENERATION_ALGORITHM == AuthAlgorithm.PLAIN:
-        return str(uuid.UUID(key))
+        return uuid.UUID(key)
     else:
         return uuid.UUID(bytes=xxhash.xxh128(key.encode()).digest())
 

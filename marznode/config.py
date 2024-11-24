@@ -29,6 +29,16 @@ HYSTERIA_CONFIG_PATH = config(
     "HYSTERIA_CONFIG_PATH", default="/etc/hysteria/config.yaml"
 )
 
+SINGBOX_ENABLED = config("SINGBOX_ENABLED", cast=bool, default=False)
+SINGBOX_EXECUTABLE_PATH = config("SINGBOX_EXECUTABLE_PATH", default="/usr/bin/sing-box")
+SINGBOX_CONFIG_PATH = config("SINGBOX_CONFIG_PATH", default="/etc/sing-box/config.json")
+SING_BOX_RESTART_ON_FAILURE = config(
+    "SING_BOX_RESTART_ON_FAILURE", cast=bool, default=False
+)
+SING_BOX_RESTART_ON_FAILURE_INTERVAL = config(
+    "SING_BOX_RESTART_ON_FAILURE_INTERVAL", cast=int, default=0
+)
+
 
 SSL_CERT_FILE = config("SSL_CERT_FILE", default="./ssl_cert.pem")
 SSL_KEY_FILE = config("SSL_KEY_FILE", default="./ssl_key.pem")

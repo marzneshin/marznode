@@ -10,6 +10,7 @@ from grpclib.utils import graceful_exit
 
 from marznode import config
 from marznode.backends.hysteria2.hysteria2_backend import HysteriaBackend
+from marznode.backends.singbox.singbox_backend import SingBoxBackend
 from marznode.backends.xray.xray_backend import XrayBackend
 from marznode.config import (
     HYSTERIA_EXECUTABLE_PATH,
@@ -19,6 +20,9 @@ from marznode.config import (
     XRAY_ENABLED,
     XRAY_EXECUTABLE_PATH,
     XRAY_ASSETS_PATH,
+    SINGBOX_ENABLED,
+    SINGBOX_EXECUTABLE_PATH,
+    SINGBOX_CONFIG_PATH,
 )
 from marznode.service import MarzService
 from marznode.storage import MemoryStorage
@@ -64,6 +68,12 @@ async def main():
         )
         await hysteria_backend.start()
         backends.update({"hysteria2": hysteria_backend})
+    if SINGBOX_ENABLED:
+        sing_box_backend = SingBoxBackend(
+            SINGBOX_EXECUTABLE_PATH, SINGBOX_CONFIG_PATH, storage
+        )
+        await sing_box_backend.start()
+        backends.update({"sing-box": sing_box_backend})
 
     server = Server([MarzService(storage, backends), Health()])
 
