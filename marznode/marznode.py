@@ -20,9 +20,9 @@ from marznode.config import (
     XRAY_ENABLED,
     XRAY_EXECUTABLE_PATH,
     XRAY_ASSETS_PATH,
-    SINGBOX_ENABLED,
-    SINGBOX_EXECUTABLE_PATH,
-    SINGBOX_CONFIG_PATH,
+    SING_BOX_ENABLED,
+    SING_BOX_EXECUTABLE_PATH,
+    SING_BOX_CONFIG_PATH,
 )
 from marznode.service import MarzService
 from marznode.storage import MemoryStorage
@@ -68,9 +68,9 @@ async def main():
         )
         await hysteria_backend.start()
         backends.update({"hysteria2": hysteria_backend})
-    if SINGBOX_ENABLED:
+    if SING_BOX_ENABLED:
         sing_box_backend = SingBoxBackend(
-            SINGBOX_EXECUTABLE_PATH, SINGBOX_CONFIG_PATH, storage
+            SING_BOX_EXECUTABLE_PATH, SING_BOX_CONFIG_PATH, storage
         )
         await sing_box_backend.start()
         backends.update({"sing-box": sing_box_backend})
