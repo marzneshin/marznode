@@ -4,8 +4,7 @@ Just a fork of Marzban-node.
 
 - [X] xray-core
 - [X] hysteria
-- [ ] wireguard
-- [ ] sing-box
+- [X] sing-box
 
 ## Setup Guide
 
