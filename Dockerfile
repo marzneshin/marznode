@@ -1,10 +1,12 @@
 FROM tobyxdd/hysteria:v2 AS hysteria-image
+FROM jklolixxs/sing-box:latest AS sing-box-image
 
 FROM python:3.12-alpine
 
 ENV PYTHONUNBUFFERED=1
 
 COPY --from=hysteria-image /usr/local/bin/hysteria /usr/local/bin/hysteria
+COPY --from=sing-box-image /usr/local/bin/sing-box /usr/local/bin/sing-box
 
 WORKDIR /app
 

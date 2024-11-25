@@ -56,7 +56,3 @@ class VPNBackend(ABC):
     @abstractmethod
     def get_config(self):
         raise NotImplementedError
-
-    @abstractmethod
-    def save_config(self, config: str):
-        raise NotImplementedError
