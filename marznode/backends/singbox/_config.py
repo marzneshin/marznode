@@ -98,6 +98,7 @@ class SingBoxConfig(dict):
 
             if inbound["type"] == "shadowtls" and "version" in inbound:
                 settings["shadowtls_version"] = inbound["version"]
+                settings["tls"] = "tls"
 
             self.inbounds.append(settings)
             self.inbounds_by_tag[inbound["tag"]] = settings
