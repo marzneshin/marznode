@@ -52,6 +52,7 @@ class SingBoxConfig(dict):
                 "vless",
                 "hysteria2",
                 "tuic",
+                "shadowtls",
             } or not inbound.get("tag"):
                 continue
 
