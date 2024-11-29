@@ -52,6 +52,7 @@ class SingBoxConfig(dict):
                 "vless",
                 "hysteria2",
                 "tuic",
+                "shadowtls",
             } or not inbound.get("tag"):
                 continue
 
@@ -59,7 +60,7 @@ class SingBoxConfig(dict):
                 "tag": inbound["tag"],
                 "protocol": inbound["type"],
                 "port": inbound.get("listen_port"),
-                "network": "tcp",
+                "network": None,
                 "tls": "none",
                 "sni": [],
                 "host": [],
@@ -94,6 +95,9 @@ class SingBoxConfig(dict):
                     settings["path"] = inbound["transport"].get("service_name")
                 elif settings["network"] == "httpupgrade":
                     settings["path"] = inbound["transport"].get("path")
+
+            if inbound["type"] == "shadowtls" and "version" in inbound:
+                settings["shadowtls_version"] = inbound["version"]
 
             self.inbounds.append(settings)
             self.inbounds_by_tag[inbound["tag"]] = settings
