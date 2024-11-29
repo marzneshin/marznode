@@ -59,7 +59,7 @@ class SingBoxConfig(dict):
                 "tag": inbound["tag"],
                 "protocol": inbound["type"],
                 "port": inbound.get("listen_port"),
-                "network": "tcp",
+                "network": None,
                 "tls": "none",
                 "sni": [],
                 "host": [],
