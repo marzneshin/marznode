@@ -96,6 +96,9 @@ class SingBoxConfig(dict):
                 elif settings["network"] == "httpupgrade":
                     settings["path"] = inbound["transport"].get("path")
 
+            if inbound["type"] == "shadowtls" and "version" in inbound:
+                settings["shadowtls_version"] = inbound["version"]
+
             self.inbounds.append(settings)
             self.inbounds_by_tag[inbound["tag"]] = settings
 
