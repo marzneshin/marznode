@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 
 import commentjson
 
@@ -6,6 +7,26 @@ from marznode.config import XRAY_EXECUTABLE_PATH, XRAY_VLESS_REALITY_FLOW
 from ._utils import get_x25519
 from ...models import Inbound
 from ...storage import BaseStorage
+
+transport_map = defaultdict(
+    lambda: "tcp",
+    {
+        "tcp": "tcp",
+        "raw": "tcp",
+        "splithttp": "splithttp",
+        "xhttp": "splithttp",
+        "grpc": "grpc",
+        "kcp": "kcp",
+        "mkcp": "kcp",
+        "h2": "http",
+        "h3": "http",
+        "http": "http",
+        "ws": "ws",
+        "websocket": "ws",
+        "httpupgrade": "httpupgrade",
+        "quic": "quic",
+    },
+)
 
 
 class XrayConfig(dict):
@@ -104,7 +125,7 @@ class XrayConfig(dict):
                 security = stream.get("security")
                 tls_settings = stream.get(f"{security}Settings")
 
-                settings["network"] = net
+                settings["network"] = transport_map[net]
 
                 if security == "tls":
                     settings["tls"] = "tls"
@@ -122,7 +143,7 @@ class XrayConfig(dict):
 
                     settings["sid"] = tls_settings.get("shortIds", [""])[0]
 
-                if net == "tcp":
+                if net in ["tcp", "raw"]:
                     header = net_settings.get("header", {})
                     request = header.get("request", {})
                     path = request.get("path")
@@ -136,14 +157,14 @@ class XrayConfig(dict):
                     if host and isinstance(host, list):
                         settings["host"] = host
 
-                elif net in ["ws", "httpupgrade", "splithttp"]:
+                elif net in ["ws", "websocket", "httpupgrade", "splithttp", "xhttp"]:
                     settings["path"] = net_settings.get("path")
                     settings["host"] = net_settings.get("host")
 
                 elif net == "grpc":
                     settings["path"] = net_settings.get("serviceName")
 
-                elif net == "kcp":
+                elif net in ["kcp", "mkcp"]:
                     settings["path"] = net_settings.get("seed")
                     settings["header_type"] = net_settings.get("header", {}).get("type")
 
