@@ -177,6 +177,9 @@ class XrayConfig(dict):
                     settings["path"] = net_settings.get("path")
                     settings["host"] = net_settings.get("host")
 
+            if inbound["protocol"] == "shadowsocks":
+                settings["network"] = None
+
             self.inbounds.append(settings)
             self.inbounds_by_tag[inbound["tag"]] = settings
 
