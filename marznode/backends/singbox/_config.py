@@ -98,6 +98,14 @@ class SingBoxConfig(dict):
 
             if inbound["type"] == "shadowtls" and "version" in inbound:
                 settings["shadowtls_version"] = inbound["version"]
+            elif inbound["type"] == "hysteria2" and "obfs" in inbound:
+                try:
+                    settings["header_type"], settings["path"] = (
+                        inbound["obfs"]["type"],
+                        inbound["obfs"]["password"],
+                    )
+                except KeyError:
+                    pass
 
             self.inbounds.append(settings)
             self.inbounds_by_tag[inbound["tag"]] = settings
