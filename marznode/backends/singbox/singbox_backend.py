@@ -39,6 +39,7 @@ class SingBoxBackend(VPNBackend):
         self._config_path = config_path
         self._full_config_path = self._config_path + ".full"
         self._restart_lock = asyncio.Lock()
+        self._config_modification_lock = asyncio.Lock()
         asyncio.create_task(self._restart_on_failure())
 
     @property
@@ -67,7 +68,7 @@ class SingBoxBackend(VPNBackend):
     async def add_storage_users(self):
         for inbound in self._inbounds:
             for user in await self._storage.list_inbound_users(inbound.tag):
-                self._config.add_user(user, inbound)
+                self._config.append_user(user, inbound)
 
     async def _restart_on_failure(self):
         while True:
@@ -104,24 +105,23 @@ class SingBoxBackend(VPNBackend):
         self._inbounds = set()
 
     async def restart(self, backend_config: str | None) -> list[Inbound] | None:
-        await self._restart_lock.acquire()
-        try:
+        async with self._restart_lock:
             if not backend_config:
                 return await self._runner.restart(self._config)
             await self.stop()
             await self.start(backend_config)
-        finally:
-            self._restart_lock.release()
 
     async def add_user(self, user: User, inbound: Inbound):
-        self._config.append_user(user, inbound)
-        self._save_config(self._config.to_json(), full=True)
-        await self._runner.reload()
+        async with self._config_modification_lock:
+            self._config.append_user(user, inbound)
+            self._save_config(self._config.to_json(), full=True)
+            await self._runner.reload()
 
     async def remove_user(self, user: User, inbound: Inbound):
-        self._config.pop_user(user, inbound)
-        self._save_config(self._config.to_json(), full=True)
-        await self._runner.reload()
+        async with self._config_modification_lock:
+            self._config.pop_user(user, inbound)
+            self._save_config(self._config.to_json(), full=True)
+            await self._runner.reload()
 
     async def get_usages(self, reset: bool = True) -> dict[int, int]:
         try:
