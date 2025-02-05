@@ -77,6 +77,11 @@ class XrayCore:
             return
 
         self._process.terminate()
+        try:
+            await asyncio.wait_for(self._process.wait(), timeout=3)
+        except asyncio.TimeoutError:
+            logger.debug("killing xray process")
+            self._process.kill()
         self._process = None
 
     async def restart(self, config: XrayConfig):
