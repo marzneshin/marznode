@@ -42,6 +42,9 @@ SING_BOX_RESTART_ON_FAILURE = config(
 SING_BOX_RESTART_ON_FAILURE_INTERVAL = config(
     "SING_BOX_RESTART_ON_FAILURE_INTERVAL", cast=int, default=0
 )
+SING_BOX_USER_MODIFICATION_INTERVAL = config(
+    "SING_BOX_USER_MODIFICATION_INTERVAL", cast=int, default=30
+)
 
 
 SSL_CERT_FILE = config("SSL_CERT_FILE", default="./ssl_cert.pem")

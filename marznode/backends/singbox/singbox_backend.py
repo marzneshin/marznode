@@ -12,6 +12,7 @@ from marznode.backends.singbox._stats import SingBoxAPI
 from marznode.config import (
     SING_BOX_RESTART_ON_FAILURE,
     SING_BOX_RESTART_ON_FAILURE_INTERVAL,
+    SING_BOX_USER_MODIFICATION_INTERVAL,
 )
 from marznode.models import User, Inbound
 from marznode.storage import BaseStorage
@@ -31,6 +32,7 @@ class SingBoxBackend(VPNBackend):
         storage: BaseStorage,
     ):
         self._config = None
+        self._config_update_event = asyncio.Event()
         self._inbound_tags = set()
         self._inbounds = list()
         self._api = None
@@ -41,6 +43,7 @@ class SingBoxBackend(VPNBackend):
         self._restart_lock = asyncio.Lock()
         self._config_modification_lock = asyncio.Lock()
         asyncio.create_task(self._restart_on_failure())
+        asyncio.create_task(self._user_update_handler())
 
     @property
     def running(self) -> bool:
@@ -49,6 +52,18 @@ class SingBoxBackend(VPNBackend):
     @property
     def version(self):
         return self._runner.version
+
+    async def _user_update_handler(self):
+        while True:
+            await asyncio.sleep(SING_BOX_USER_MODIFICATION_INTERVAL)
+
+            logger.debug("checking for sing-box user modifications")
+            async with self._config_modification_lock:
+                if self._config_update_event.is_set():
+                    logger.debug("updating sing-box users")
+                    self._save_config(self._config.to_json(), full=True)
+                    await self._runner.reload()
+                    self._config_update_event.clear()
 
     def contains_tag(self, tag: str) -> bool:
         return tag in self._inbound_tags
@@ -114,14 +129,12 @@ class SingBoxBackend(VPNBackend):
     async def add_user(self, user: User, inbound: Inbound):
         async with self._config_modification_lock:
             self._config.append_user(user, inbound)
-            self._save_config(self._config.to_json(), full=True)
-            await self._runner.reload()
+            self._config_update_event.set()
 
     async def remove_user(self, user: User, inbound: Inbound):
         async with self._config_modification_lock:
             self._config.pop_user(user, inbound)
-            self._save_config(self._config.to_json(), full=True)
-            await self._runner.reload()
+            self._config_update_event.set()
 
     async def get_usages(self, reset: bool = True) -> dict[int, int]:
         try:
