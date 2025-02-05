@@ -31,7 +31,7 @@ class XrayCore:
         self._env = {"XRAY_LOCATION_ASSET": assets_path}
         self.stop_event = asyncio.Event()
 
-        atexit.register(lambda: self.stop() if self.running else None)
+        atexit.register(lambda: asyncio.run(self.stop()) if self.running else None)
 
     async def start(self, config: XrayConfig):
         if self.running is True:
@@ -52,18 +52,26 @@ class XrayCore:
         await self._process.stdin.drain()
         self._process.stdin.close()
         await self._process.stdin.wait_closed()
+        asyncio.create_task(self._set_stop_event())
         logger.info("Xray core %s started", self.version)
 
         logs_stm = self.get_logs_stm()
         asyncio.create_task(self.__capture_process_logs())
-        async for line in logs_stm:
-            if line == b"" or re.match(
-                r".*\[Warning] core: Xray \d+\.\d+\.\d+ started", line.decode()
-            ):  # either start or die
-                logs_stm.close()
-                return
 
-    def stop(self):
+        async def reach_startup_result(stream):
+            async for line in stream:
+                if line == b"" or re.match(
+                    r".*\[Warning] core: Xray \d+\.\d+\.\d+ started", line.decode()
+                ):  # either start or die
+                    logs_stm.close()
+                    return
+
+        try:
+            await asyncio.wait_for(reach_startup_result(logs_stm), timeout=4)
+        except asyncio.TimeoutError:
+            pass
+
+    async def stop(self):
         """stops xray if it is started"""
         if not self.running:
             return
@@ -79,7 +87,7 @@ class XrayCore:
         try:
             self.restarting = True
             logger.warning("Restarting Xray core")
-            self.stop()
+            await self.stop()
             await self.start(config)
         finally:
             self.restarting = False
@@ -108,9 +116,11 @@ class XrayCore:
         await asyncio.gather(
             capture_stream(self._process.stderr), capture_stream(self._process.stdout)
         )
+
+    async def _set_stop_event(self):
+        await self._process.wait()
         logger.warning("Xray stopped/died")
         self.stop_event.set()
-        self.stop_event.clear()
 
     def get_logs_stm(self) -> MemoryObjectReceiveStream:
         new_snd_stm, new_rcv_stm = create_memory_object_stream()
