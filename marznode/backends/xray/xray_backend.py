@@ -74,6 +74,7 @@ class XrayBackend(VPNBackend):
     async def _restart_on_failure(self):
         while True:
             await self._runner.stop_event.wait()
+            self._runner.stop_event.clear()
             if self._restart_lock.locked():
                 logger.debug("Xray restarting as planned")
             else:
@@ -97,8 +98,8 @@ class XrayBackend(VPNBackend):
         self._api = XrayAPI("127.0.0.1", xray_api_port)
         await self._runner.start(self._config)
 
-    def stop(self):
-        self._runner.stop()
+    async def stop(self):
+        await self._runner.stop()
         for tag in self._inbound_tags:
             self._storage.remove_inbound(tag)
         self._inbound_tags = set()
@@ -110,7 +111,7 @@ class XrayBackend(VPNBackend):
         try:
             if not backend_config:
                 return await self._runner.restart(self._config)
-            self.stop()
+            await self.stop()
             await self.start(backend_config)
         finally:
             self._restart_lock.release()
