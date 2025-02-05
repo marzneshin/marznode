@@ -52,7 +52,6 @@ class XrayCore:
         await self._process.stdin.drain()
         self._process.stdin.close()
         await self._process.stdin.wait_closed()
-        asyncio.create_task(self._set_stop_event())
         logger.info("Xray core %s started", self.version)
 
         logs_stm = self.get_logs_stm()
@@ -122,8 +121,7 @@ class XrayCore:
             capture_stream(self._process.stderr), capture_stream(self._process.stdout)
         )
 
-    async def _set_stop_event(self):
-        await self._process.wait()
+        await self._process.communicate()
         logger.warning("Xray stopped/died")
         self.stop_event.set()
 

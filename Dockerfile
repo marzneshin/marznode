@@ -1,7 +1,7 @@
 FROM tobyxdd/hysteria:v2 AS hysteria-image
 FROM jklolixxs/sing-box:latest AS sing-box-image
 
-FROM python:3-alpine
+FROM python:3.12-alpine
 
 ENV PYTHONUNBUFFERED=1
 
