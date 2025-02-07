@@ -133,7 +133,7 @@ class XrayConfig(dict):
                     settings["fp"] = "chrome"
                     settings["tls"] = "reality"
                     settings["sni"] = tls_settings.get("serverNames", [])
-                    if inbound["protocol"] == "vless" and transport_map[net] == "tcp":
+                    if inbound["protocol"] == "vless" and transport_map[net] in {"tcp"}:
                         settings["flow"] = XRAY_VLESS_REALITY_FLOW
 
                     pvk = tls_settings.get("privateKey")
