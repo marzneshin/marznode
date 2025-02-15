@@ -6,7 +6,8 @@ Just a fork of Marzban-node.
 - [X] hysteria
 - [X] sing-box
 
-## Setup Guide
+## Setup Guide for Development
+Python versions older than 3.12 are not supported.
 
 Setup python virtual environment
 ```sh
