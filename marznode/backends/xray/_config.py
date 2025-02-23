@@ -3,7 +3,7 @@ from collections import defaultdict
 
 import commentjson
 
-from marznode.config import XRAY_EXECUTABLE_PATH, XRAY_VLESS_REALITY_FLOW
+from marznode.config import XRAY_EXECUTABLE_PATH, XRAY_VLESS_REALITY_FLOW, DEBUG
 from ._utils import get_x25519
 from ...models import Inbound
 from ...storage import BaseStorage
@@ -28,6 +28,23 @@ transport_map = defaultdict(
     },
 )
 
+forced_policies = {
+  "levels": {"0": {"statsUserUplink": True, "statsUserDownlink": True}},
+  "system": {
+    "statsInboundDownlink": False,
+    "statsInboundUplink": False,
+    "statsOutboundDownlink": True,
+    "statsOutboundUplink": True
+  }
+}
+
+def merge_dicts(a, b): # B overrides A dict
+    for key, value in b.items():
+        if isinstance(value, dict) and key in a and isinstance(a[key], dict):
+            merge_dicts(a[key], value)
+        else:
+            a[key] = value
+    return a
 
 class XrayConfig(dict):
     def __init__(
@@ -62,15 +79,10 @@ class XrayConfig(dict):
             "tag": "API",
         }
         self["stats"] = {}
-        self["policy"] = {
-            "levels": {"0": {"statsUserUplink": True, "statsUserDownlink": True}},
-            "system": {
-                "statsInboundDownlink": False,
-                "statsInboundUplink": False,
-                "statsOutboundDownlink": True,
-                "statsOutboundUplink": True,
-            },
-        }
+        if self.get("policy"):
+            self["policy"] = merge_dicts(self.get("policy"), forced_policies)
+        else:
+            self["policy"] = forced_policies
         inbound = {
             "listen": self.api_host,
             "port": self.api_port,
@@ -194,4 +206,7 @@ class XrayConfig(dict):
         ]
 
     def to_json(self, **json_kwargs):
+        if DEBUG:
+            with open('xray_config_debug.json', 'w') as f:
+                f.write(json.dumps(self, indent=4))
         return json.dumps(self, **json_kwargs)
