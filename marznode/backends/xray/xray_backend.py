@@ -106,13 +106,10 @@ class XrayBackend(VPNBackend):
         self._inbounds = set()
 
     async def restart(self, backend_config: str | None) -> list[Inbound] | None:
-        # xray_config = backend_config if backend_config else self._config
         await self._restart_lock.acquire()
         try:
-            if not backend_config:
-                return await self._runner.restart(self._config)
             await self.stop()
-            await self.start(backend_config)
+            await self.start(backend_config if backend_config else None)
         finally:
             self._restart_lock.release()
 
